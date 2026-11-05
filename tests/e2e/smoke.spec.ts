@@ -54,8 +54,7 @@ test('student can complete onboarding and reopen saved study settings', async ({
   await startButton.click()
 
   await expect(page.getByRole('heading', { name: /Tonight’s 20/ })).toBeVisible()
-  await expect(page.getByText('Algebra', { exact: true })).toBeVisible()
-  await expect(page.getByText('Functions', { exact: true })).toBeVisible()
+  await expect(page.locator('.dashboard-pills .pill')).toContainText(['Algebra', 'Functions'])
 
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /Study settings/ }).click()
