@@ -29,7 +29,7 @@ test('Supabase sign-in, profile persistence, and profile RLS isolation', async (
     sessionStorage.clear()
   })
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
+  await page.goto('/examforge/')
 
   const examDate = new Date()
   examDate.setDate(examDate.getDate() + 45)
