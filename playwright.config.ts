@@ -13,12 +13,14 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   webServer: {
-    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4173',
-    url: 'http://127.0.0.1:4173',
-    reuseExistingServer: !process.env.CI,
+    // Build into a separate folder using the real GitHub Pages base path.
+    // Never overwrite dist/, which contains the artifact that will be deployed.
+    command: 'GITHUB_ACTIONS=true npm run build -- --outDir dist-e2e && npm run preview -- --outDir dist-e2e --host 127.0.0.1 --port 4173',
+    url: 'http://127.0.0.1:4173/examforge/',
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
-      GITHUB_ACTIONS: '',
+      GITHUB_ACTIONS: 'true',
       VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ?? '',
       VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ?? '',
     },
