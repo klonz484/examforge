@@ -37,6 +37,13 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run browser smoke tests
         run: npm run test:e2e
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          E2E_TEST_EMAIL_A: ${{ secrets.E2E_TEST_EMAIL_A }}
+          E2E_TEST_PASSWORD_A: ${{ secrets.E2E_TEST_PASSWORD_A }}
+          E2E_TEST_EMAIL_B: ${{ secrets.E2E_TEST_EMAIL_B }}
+          E2E_TEST_PASSWORD_B: ${{ secrets.E2E_TEST_PASSWORD_B }}
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
