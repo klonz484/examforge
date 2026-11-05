@@ -1,21 +1,24 @@
 import { test, expect } from '@playwright/test'
 
-test('ExamForge loads its onboarding screen without a browser error', async ({ page }) => {
+test('ExamForge loads from its GitHub Pages project path without a browser error', async ({ page }) => {
   const pageErrors: string[] = []
+  const failedAssets: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
+  page.on('requestfailed', request => failedAssets.push(request.url()))
 
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
+  await page.goto('/examforge/')
 
   await expect(page).toHaveTitle(/ExamForge/)
   await expect(page.locator('#root')).not.toBeEmpty()
   await expect(page.getByRole('heading', { name: /set up your exam focus/i })).toBeVisible()
   expect(pageErrors).toEqual([])
+  expect(failedAssets).toEqual([])
 })
 
-test('ExamForge renders at a narrow mobile viewport', async ({ page }) => {
+test('ExamForge renders at a narrow mobile viewport on its project path', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
-  await page.goto('/')
+  await page.goto('/examforge/')
 
   await expect(page.locator('#root')).not.toBeEmpty()
   const dimensions = await page.evaluate(() => ({
@@ -33,7 +36,7 @@ test('student can complete onboarding and reopen saved study settings', async ({
     localStorage.clear()
     sessionStorage.clear()
   })
-  await page.goto('/')
+  await page.goto('/examforge/')
 
   const examDate = new Date()
   examDate.setDate(examDate.getDate() + 30)
