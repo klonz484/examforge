@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Activity, Atom, BookOpen, CalendarDays, Check, ChevronRight, Clock3, FileText, Flame, FlaskConical, Home, LockKeyhole, LogOut, Menu, Plus, Search, Settings2, ShieldCheck, Sigma, Target, Upload, UserRound, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from './supabase'
+import { CAPS_SUBJECTS, searchCapsSubjects, type CapsGrade } from './data/capsSubjects'
 
 type Tab = 'Dashboard' | 'Past Papers' | 'Upload Notes' | 'Progress'
 type Question = { prompt: string; options: string[]; answer: number; explanation: string; topic: string }
@@ -42,7 +43,16 @@ const MAX_NOTE_BYTES = 10 * 1024 * 1024
 
 type Session = { date: string; score: number; seconds: number; subject: string }
 type Attempt = { topic: string; correct: boolean; t: number }
-type Profile = { grade: string; examDate: string; subject: string; weak: string[] }
+type Profile = { grade: string; examDate: string; subject: string; weak: string[]; subjects?: string[] }
+
+function subjectName(id: string) {
+  if (id === 'physical-science') return 'Physical Science'
+  return CAPS_SUBJECTS.find(item => item.id === id)?.name ?? id
+}
+function subjectId(name: string) {
+  if (name === 'Physical Science' || name === 'Physical Sciences') return 'physical-science'
+  return CAPS_SUBJECTS.find(item => item.name === name || item.legacyNames?.includes(name))?.id ?? 'mathematics'
+}
 
 function load<T>(key: string, fallback: T): T {
   try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as T) : fallback } catch { return fallback }
@@ -62,7 +72,7 @@ function computeStreak(dates: string[]) {
 }
 // Weak topics first, then the rest, 5 questions total.
 function pickQuestions(subject: string, weak: string[]): Question[] {
-  const pool = subject === 'Mathematics' ? MATHS_QUESTIONS : SCIENCE_QUESTIONS
+  const pool = subject === 'Mathematics' ? MATHS_QUESTIONS : subject === 'Physical Science' ? SCIENCE_QUESTIONS : []
   const shuffled = [...pool].sort(() => Math.random() - 0.5)
   const weakQs = shuffled.filter(q => weak.includes(q.topic))
   const rest = shuffled.filter(q => !weak.includes(q.topic))
@@ -72,6 +82,8 @@ function pickQuestions(subject: string, weak: string[]): Question[] {
 function App() {
   const [tab, setTab] = useState<Tab>('Dashboard')
   const [subject, setSubject] = useState('Physical Science')
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>(['physical-science', 'mathematics'])
+  const [subjectSearch, setSubjectSearch] = useState('')
   const [grade, setGrade] = useState('12')
   const [examDate, setExamDate] = useState(() => dateAfterDays(20))
   const [weak, setWeak] = useState<string[]>([])
@@ -103,7 +115,9 @@ function App() {
   const rewindDone = doneDates.includes(today)
   const todaySession = sessions.find(x => x.date === today)
   const streak = computeStreak(doneDates)
-  const topics = TOPICS[subject] ?? TOPICS['Physical Science']
+  const topics = TOPICS[subject] ?? []
+  const availableSubjects = useMemo(() => searchCapsSubjects(subjectSearch, Number(grade) as CapsGrade).filter(item => item.status !== 'pathway-parent'), [subjectSearch, grade])
+  const enrolledSubjects = useMemo(() => selectedSubjectIds.map(subjectName), [selectedSubjectIds])
   const daysLeft = examDate ? Math.max(0, Math.ceil((new Date(examDate + 'T23:59:59').getTime() - Date.now()) / 86400000)) : null
   const currentQuestion = sessionQs[questionIndex]
   const score = answers.reduce((n, a, i) => n + (sessionQs[i] && a === sessionQs[i].answer ? 1 : 0), 0)
@@ -135,7 +149,7 @@ function App() {
     setRewindOpen(false); setSeconds(0); setRemoteDates([]); setNotes([]); setNoteStatus('')
     setSessions(userId ? load<Session[]>(userStorageKey(userId, 'sessions'), []) : [])
     setAttempts(userId ? load<Attempt[]>(userStorageKey(userId, 'attempts'), []) : [])
-    setWeak([]); setGrade('12'); setSubject('Physical Science'); setExamDate(dateAfterDays(20))
+    setWeak([]); setGrade('12'); setSubject('Physical Science'); setSelectedSubjectIds(['physical-science', 'mathematics']); setSubjectSearch(''); setExamDate(dateAfterDays(20))
     setOnboarded(false); setShowOnboarding(true)
     if (!userId || !supabase) return
     const client = supabase
@@ -148,12 +162,17 @@ function App() {
       if (profile) {
         const p: Profile = { grade: String(profile.grade ?? '12'), examDate: profile.exam_date ?? dateAfterDays(20), subject: profile.primary_subject ?? 'Physical Science', weak: profile.weak_topics ?? [] }
         setGrade(p.grade); setExamDate(p.examDate); setSubject(p.subject); setWeak(p.weak)
+        const { data: subjectRows, error: subjectError } = await client.from('learner_subjects').select('subject_id').eq('user_id', userId)
+        if (!active) return
+        const ids = !subjectError && subjectRows?.length ? subjectRows.map(row => row.subject_id as string) : [subjectId(p.subject)]
+        setSelectedSubjectIds(Array.from(new Set(ids)))
         setOnboarded(true); setShowOnboarding(false)
-        save(userStorageKey(userId, 'profile'), p)
+        save(userStorageKey(userId, 'profile'), { ...p, subjects: ids })
       } else {
         const localProfile = load<Profile | null>(userStorageKey(userId, 'profile'), null)
         if (localProfile) {
           setGrade(localProfile.grade); setExamDate(localProfile.examDate); setSubject(localProfile.subject); setWeak(localProfile.weak)
+          setSelectedSubjectIds(localProfile.subjects?.length ? localProfile.subjects : [subjectId(localProfile.subject)])
           setOnboarded(true); setShowOnboarding(false)
         }
       }
@@ -193,7 +212,9 @@ function App() {
 
   function startRewind() {
     if (rewindDone) return
-    setSessionQs(pickQuestions(subject, weak)); setQuestionIndex(0); setSelected(null); setAnswers([]); setSeconds(0); setRewindOpen(true)
+    const questions = pickQuestions(subject, weak)
+    if (!questions.length) { setToast('Practice questions for this subject are being prepared. Choose Mathematics or Physical Science for a Rewind right now.'); return }
+    setSessionQs(questions); setQuestionIndex(0); setSelected(null); setAnswers([]); setSeconds(0); setRewindOpen(true)
   }
   async function finishRewind() {
     const entry: Session = { date: today, score, seconds, subject }
@@ -244,15 +265,45 @@ function App() {
   }
   function toggleTopic(topic: string) { setWeak(w => w.includes(topic) ? w.filter(t => t !== topic) : [...w, topic]) }
   function chooseSubject(name: string) { if (name !== subject) { setSubject(name); setWeak([]) } }
+  function toggleEnrolledSubject(id: string) {
+    setSelectedSubjectIds(current => {
+      if (current.includes(id)) {
+        if (current.length === 1) { setToast('Keep at least one subject selected.'); return current }
+        const next = current.filter(value => value !== id)
+        if (subjectId(subject) === id) setSubject(subjectName(next[0]))
+        return next
+      }
+      return [...current, id]
+    })
+  }
+  async function syncLearnerSubjects(userId: string) {
+    if (!supabase) return
+    const rows = selectedSubjectIds.map(id => {
+      const item = CAPS_SUBJECTS.find(subjectItem => subjectItem.id === id)!
+      return { user_id: userId, subject_id: id, subject_name: subjectName(id), category: item.category }
+    })
+    const { error: upsertError } = await supabase.from('learner_subjects').upsert(rows, { onConflict: 'user_id,subject_id' })
+    if (upsertError) throw upsertError
+    const { data: existing, error: readError } = await supabase.from('learner_subjects').select('subject_id').eq('user_id', userId)
+    if (readError) throw readError
+    const stale = (existing ?? []).filter(row => !selectedSubjectIds.includes(row.subject_id as string))
+    for (const row of stale) {
+      const { error } = await supabase.from('learner_subjects').delete().eq('user_id', userId).eq('subject_id', row.subject_id)
+      if (error) throw error
+    }
+  }
   async function saveOnboarding() {
-    const p: Profile = { grade, examDate, subject, weak }
-    if (user) save(userStorageKey(user.id, 'profile'), p)
-    setOnboarded(true); setShowOnboarding(false)
+    if (!selectedSubjectIds.length || !examDate || (topics.length > 0 && weak.length < 2)) return
+    const p: Profile = { grade, examDate, subject, weak, subjects: selectedSubjectIds }
     if (supabase && user) {
       const { error } = await supabase.from('profiles').upsert({ id: user.id, grade: Number(grade), exam_date: examDate, primary_subject: subject, weak_topics: weak })
-      if (error) { console.error('Profile sync failed:', error.message); setToast('Could not sync your study focus. Please try again.'); return }
+      if (error) { console.error('Profile sync failed:', error.message); setToast('Could not save your profile. Your changes are still open; please retry.'); return }
+      try { await syncLearnerSubjects(user.id) }
+      catch (error) { console.error('Subject sync failed:', error); setToast('Your profile saved, but subjects did not sync. Please retry before leaving settings.'); return }
     }
-    setToast('Your study focus is set. Rewind first.')
+    if (user) save(userStorageKey(user.id, 'profile'), p)
+    setOnboarded(true); setShowOnboarding(false)
+    setToast('Your subjects are saved. Choose what to study each day.')
   }
 
   if (showOnboarding) return <div className="onboard-wrap"><div className="brand"><span className="brand-mark"><Flame size={29} fill="currentColor"/></span><span>Exam<span>Forge</span></span></div><div className="onboard-hero"><p className="eyebrow">STUDY. PRACTICE. EXCEL.</p><h1>Set up your<br/><em>exam focus</em></h1><p className="muted">We’ll tailor your practice to what matters most.</p></div><section className="panel onboarding"><label className="field-label"><CalendarDays size={18}/> Exam date</label><input type="date" min={today} value={examDate} onChange={e=>setExamDate(e.target.value)}/><label className="field-label"><UserRound size={18}/> Your grade</label><div className="choice-row">{['10','11','12'].map(g=><button key={g} className={`choice ${grade===g?'chosen':''}`} onClick={()=>setGrade(g)}>Grade {g}</button>)}</div><label className="field-label"><Settings2 size={18}/> Select your subject</label><div className="subject-grid"><button className={`subject-card ${subject==='Physical Science'?'chosen':''}`} onClick={()=>chooseSubject('Physical Science')}><Atom/><b>Physical Science</b><small>Physics & Chemistry</small></button><button className={`subject-card ${subject==='Mathematics'?'chosen':''}`} onClick={()=>chooseSubject('Mathematics')}><Sigma/><b>Mathematics</b><small>Algebra & Geometry</small></button></div><label className="field-label"><Target size={18}/> Your weakest topics</label><div className="topic-pills">{topics.map(t=><button key={t} onClick={()=>toggleTopic(t)} className={`pill ${weak.includes(t)?'selected':''}`}>{t}</button>)}</div><p className="hint">Choose at least 2 topics. You can change this anytime.</p><button className="primary full" disabled={weak.length<2 || !examDate} onClick={saveOnboarding}>Start Forging <ChevronRight size={20}/></button><p className="privacy"><LockKeyhole size={14}/> Your data stays private. Focus built for you.</p></section></div>
