@@ -23,7 +23,7 @@ test('grade filters expose only ATP-listed grade offerings', () => {
 })
 
 test('CAPS-index-only offerings are discoverable but do not claim grade availability', () => {
-  for (const id of ['equine-studies', 'marine-sciences', 'maritime-economics', 'nautical-science', 'sport-and-exercise-science', 'language-french-sal', 'language-mandarin-sal']) {
+  for (const id of ['equine-studies', 'marine-sciences', 'maritime-economics', 'nautical-science', 'sport-and-exercise-science', 'language-french-sal', 'language-mandarin-sal', 'computer-applications-technology', 'information-technology']) {
     const item = CAPS_SUBJECTS.find((subject) => subject.id === id)
     expect(item).toBeTruthy()
     expect(item?.status).toBe('caps-index-only')
