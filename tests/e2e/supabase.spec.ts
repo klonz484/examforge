@@ -56,8 +56,14 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   const cleanupUserId = cleanupSignIn.data.user!.id
   const clearedSubjects = await cleanupClient.from('learner_subjects').delete().eq('user_id', cleanupUserId)
   expect(clearedSubjects.error).toBeNull()
-  const clearedProfile = await cleanupClient.from('profiles').delete().eq('id', cleanupUserId)
-  expect(clearedProfile.error).toBeNull()
+  const resetProfile = await cleanupClient.from('profiles').upsert({
+    id: cleanupUserId,
+    grade: 12,
+    exam_date: dateValue,
+    primary_subject: 'Physical Science',
+    weak_topics: [],
+  })
+  expect(resetProfile.error).toBeNull()
   await cleanupClient.auth.signOut()
 
   // Sign in through the real UI so the app can sync onboarding to the student's account.
@@ -68,6 +74,19 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.locator('input[type="password"]').fill(passwordA!)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page.getByText('You are signed in.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Tonight’s 20/ })).toBeVisible()
+
+  // Save through the authenticated settings flow; guest onboarding is never copied over an existing account.
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('button', { name: /Study settings/ }).click()
+  await page.locator('input[type="date"]').fill(dateValue)
+  await page.getByRole('button', { name: /^Mathematics/ }).click()
+  await page.getByRole('button', { name: /Accounting/ }).click()
+  await page.getByLabel('Choose your starting subject').selectOption('Physical Science')
+  await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
+  await page.getByRole('button', { name: 'Electricity', exact: true }).click()
+  await page.getByRole('button', { name: /Save my subjects/ }).click()
+  await expect(page.getByRole('heading', { name: /Tonight’s 20/ })).toBeVisible()
 
   const accountA = client()
   const signInA = await accountA.auth.signInWithPassword({ email: emailA!, password: passwordA! })
