@@ -15,7 +15,7 @@ function client() {
   })
 }
 
-test('Supabase sign-in, profile persistence, and profile RLS isolation', async ({ page }) => {
+test('Supabase sign-in, full onboarding profile persistence, and profile RLS isolation', async ({ page }) => {
   expect(url).toBeTruthy()
   expect(anonKey).toBeTruthy()
   expect(emailA).toBeTruthy()
@@ -23,7 +23,7 @@ test('Supabase sign-in, profile persistence, and profile RLS isolation', async (
   expect(emailB).toBeTruthy()
   expect(passwordB).toBeTruthy()
 
-  // Create a fresh, isolated browser state. The account used here is a dedicated test account.
+  // Start with a clean browser and complete the same onboarding flow a student uses.
   await page.addInitScript(() => {
     localStorage.clear()
     sessionStorage.clear()
@@ -47,6 +47,7 @@ test('Supabase sign-in, profile persistence, and profile RLS isolation', async (
   await page.getByRole('button', { name: /Start Forging/ }).click()
   await expect(page.getByRole('heading', { name: /Tonight’s 20/ })).toBeVisible()
 
+  // Sign in through the real UI so the app can sync onboarding to the student's account.
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /Account \/ sign in/ }).click()
   await page.getByRole('button', { name: /Already have an account\? Sign in/ }).click()
@@ -61,32 +62,47 @@ test('Supabase sign-in, profile persistence, and profile RLS isolation', async (
   const userA = signInA.data.user
   expect(userA).toBeTruthy()
 
-  // The app's auth effect syncs the completed onboarding profile to Supabase.
+  // Verify every onboarding field reaches the database, not just a success toast or local state.
   await expect.poll(async () => {
     const result = await accountA.from('profiles')
       .select('id,grade,exam_date,primary_subject,weak_topics')
       .eq('id', userA!.id)
       .maybeSingle()
-    return result.data?.grade ?? null
-  }, { timeout: 20_000 }).toBe(12)
+    if (result.error) throw result.error
+    return result.data
+  }, { timeout: 20_000 }).toMatchObject({
+    id: userA!.id,
+    grade: 12,
+    exam_date: dateValue,
+    primary_subject: 'Physical Science',
+    weak_topics: ['Mechanics', 'Electricity'],
+  })
 
-  const ownProfile = await accountA.from('profiles').select('id,grade').eq('id', userA!.id).maybeSingle()
+  const ownProfile = await accountA.from('profiles')
+    .select('id,grade,exam_date,primary_subject,weak_topics')
+    .eq('id', userA!.id)
+    .maybeSingle()
   expect(ownProfile.error).toBeNull()
-  expect(ownProfile.data?.id).toBe(userA!.id)
+  expect(ownProfile.data).toMatchObject({
+    id: userA!.id,
+    grade: 12,
+    exam_date: dateValue,
+    primary_subject: 'Physical Science',
+    weak_topics: ['Mechanics', 'Electricity'],
+  })
 
+  // A second account must not be able to read or overwrite the first student's profile.
   const accountB = client()
   const signInB = await accountB.auth.signInWithPassword({ email: emailB!, password: passwordB! })
   expect(signInB.error).toBeNull()
   expect(signInB.data.user).toBeTruthy()
 
-  // RLS must hide Account A's profile from Account B.
   const crossAccountRead = await accountB.from('profiles')
     .select('id,grade')
     .eq('id', userA!.id)
   expect(crossAccountRead.error).toBeNull()
   expect(crossAccountRead.data).toEqual([])
 
-  // A forged insert for another user's UUID must be rejected by WITH CHECK.
   const forgedInsert = await accountB.from('profiles').insert({
     id: userA!.id,
     grade: 10,
@@ -95,6 +111,13 @@ test('Supabase sign-in, profile persistence, and profile RLS isolation', async (
     weak_topics: ['Algebra', 'Functions'],
   })
   expect(forgedInsert.error).not.toBeNull()
+
+  const forgedUpdate = await accountB.from('profiles')
+    .update({ grade: 10, primary_subject: 'Mathematics' })
+    .eq('id', userA!.id)
+    .select('id')
+  expect(forgedUpdate.error).toBeNull()
+  expect(forgedUpdate.data).toEqual([])
 
   await accountA.auth.signOut()
   await accountB.auth.signOut()
