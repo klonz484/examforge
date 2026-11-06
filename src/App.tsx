@@ -49,6 +49,8 @@ function load<T>(key: string, fallback: T): T {
 }
 function save(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* storage full or blocked */ } }
 function localDate(d = new Date()) { return d.toLocaleDateString('en-CA') }
+function dateAfterDays(days: number) { const d = new Date(); d.setDate(d.getDate() + days); return localDate(d) }
+function userStorageKey(userId: string | null, item: string) { return `ef:${userId ?? 'guest'}:${item}` }
 function fmt(total: number) { return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}` }
 function computeStreak(dates: string[]) {
   const set = new Set(dates)
@@ -68,21 +70,20 @@ function pickQuestions(subject: string, weak: string[]): Question[] {
 }
 
 function App() {
-  const saved = useMemo(() => load<Profile | null>('ef-profile', null), [])
   const [tab, setTab] = useState<Tab>('Dashboard')
-  const [subject, setSubject] = useState(saved?.subject ?? 'Physical Science')
-  const [grade, setGrade] = useState(saved?.grade ?? '12')
-  const [examDate, setExamDate] = useState(saved?.examDate ?? '')
-  const [weak, setWeak] = useState<string[]>(saved?.weak ?? [])
+  const [subject, setSubject] = useState('Physical Science')
+  const [grade, setGrade] = useState('12')
+  const [examDate, setExamDate] = useState(() => dateAfterDays(20))
+  const [weak, setWeak] = useState<string[]>([])
   const [sessionQs, setSessionQs] = useState<Question[]>([])
   const [questionIndex, setQuestionIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [answers, setAnswers] = useState<number[]>([])
   const [rewindOpen, setRewindOpen] = useState(false)
   const [seconds, setSeconds] = useState(0)
-  const [sessions, setSessions] = useState<Session[]>(() => load<Session[]>('ef-sessions', []))
+  const [sessions, setSessions] = useState<Session[]>([])
   const [remoteDates, setRemoteDates] = useState<string[]>([])
-  const [attempts, setAttempts] = useState<Attempt[]>(() => load<Attempt[]>('ef-attempts', []))
+  const [attempts, setAttempts] = useState<Attempt[]>([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('All')
   const [notes, setNotes] = useState<File[]>([])
@@ -93,8 +94,8 @@ function App() {
   const [authMode, setAuthMode] = useState<'in' | 'up'>('up')
   const [password, setPassword] = useState('')
   const [toast, setToast] = useState('')
-  const [onboarded, setOnboarded] = useState(Boolean(saved))
-  const [showOnboarding, setShowOnboarding] = useState(!saved)
+  const [onboarded, setOnboarded] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
 
   const today = localDate()
@@ -127,25 +128,41 @@ function App() {
     return () => data.subscription.unsubscribe()
   }, [])
 
-  // When signed in: sync profile and load completed-session history.
+  // Every account gets an isolated browser-storage namespace. Guests always start from defaults.
   useEffect(() => {
-    if (!supabase || !user) { setRemoteDates([]); return }
+    const userId = user?.id ?? null
+    setTab('Dashboard'); setSessionQs([]); setQuestionIndex(0); setSelected(null); setAnswers([])
+    setRewindOpen(false); setSeconds(0); setRemoteDates([]); setNotes([]); setNoteStatus('')
+    setSessions(userId ? load<Session[]>(userStorageKey(userId, 'sessions'), []) : [])
+    setAttempts(userId ? load<Attempt[]>(userStorageKey(userId, 'attempts'), []) : [])
+    setWeak([]); setGrade('12'); setSubject('Physical Science'); setExamDate(dateAfterDays(20))
+    setOnboarded(false); setShowOnboarding(true)
+    if (!userId || !supabase) return
     const client = supabase
+    let active = true
     ;(async () => {
-      const { data: profile } = await client.from('profiles').select('grade,exam_date,primary_subject,weak_topics').eq('id', user.id).maybeSingle()
-      if (profile && !onboarded) {
-        const p: Profile = { grade: String(profile.grade ?? '12'), examDate: profile.exam_date ?? '', subject: profile.primary_subject ?? 'Physical Science', weak: profile.weak_topics ?? [] }
+      const { data: profile, error: profileError } = await client.from('profiles')
+        .select('grade,exam_date,primary_subject,weak_topics').eq('id', userId).maybeSingle()
+      if (!active) return
+      if (profileError) { console.error('Profile load failed:', profileError.message); return }
+      if (profile) {
+        const p: Profile = { grade: String(profile.grade ?? '12'), examDate: profile.exam_date ?? dateAfterDays(20), subject: profile.primary_subject ?? 'Physical Science', weak: profile.weak_topics ?? [] }
         setGrade(p.grade); setExamDate(p.examDate); setSubject(p.subject); setWeak(p.weak)
-        save('ef-profile', p); setOnboarded(true); setShowOnboarding(false)
-      } else if (onboarded && examDate) {
-        const { error } = await client.from('profiles').upsert({ id: user.id, grade: Number(grade), exam_date: examDate, primary_subject: subject, weak_topics: weak })
-        if (error) console.error('Profile sync failed:', error.message)
+        setOnboarded(true); setShowOnboarding(false)
+        save(userStorageKey(userId, 'profile'), p)
+      } else {
+        const localProfile = load<Profile | null>(userStorageKey(userId, 'profile'), null)
+        if (localProfile) {
+          setGrade(localProfile.grade); setExamDate(localProfile.examDate); setSubject(localProfile.subject); setWeak(localProfile.weak)
+          setOnboarded(true); setShowOnboarding(false)
+        }
       }
-      const { data: rows } = await client.from('study_sessions').select('completed_at').order('completed_at', { ascending: false }).limit(120)
-      if (rows) setRemoteDates(rows.map(r => localDate(new Date(r.completed_at as string))))
+      const { data: rows, error: sessionsError } = await client.from('study_sessions')
+        .select('completed_at').eq('user_id', userId).order('completed_at', { ascending: false }).limit(120)
+      if (active && !sessionsError && rows) setRemoteDates(rows.map(r => localDate(new Date(r.completed_at as string))))
     })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+    return () => { active = false }
+  }, [user?.id])
 
   async function signIn() {
     if (!supabase) { setToast('Add your Supabase URL and publishable key to .env.local first.'); return }
@@ -164,7 +181,7 @@ function App() {
   async function finishRewind() {
     const entry: Session = { date: today, score, seconds, subject }
     const next = [...sessions, entry]
-    setSessions(next); save('ef-sessions', next); setRewindOpen(false)
+    setSessions(next); if (user) save(userStorageKey(user.id, 'sessions'), next); setRewindOpen(false)
     if (supabase && user) {
       const { error } = await supabase.from('study_sessions').insert({ subject, session_type: 'rewind', duration_seconds: seconds, score, total_questions: sessionQs.length })
       if (error) { console.error(error.message); setToast(`Rewind done: ${score}/${sessionQs.length}. Saved on this device only — sync failed.`); return }
@@ -177,7 +194,7 @@ function App() {
     setSelected(i); setAnswers(a => [...a.slice(0, questionIndex), i])
     const correct = i === currentQuestion.answer
     const next = [...attempts, { topic: currentQuestion.topic, correct, t: Date.now() }].slice(-500)
-    setAttempts(next); save('ef-attempts', next)
+    setAttempts(next); if (user) save(userStorageKey(user.id, 'attempts'), next)
     if (supabase && user) {
       const { error } = await supabase.from('question_attempts').insert({ source_type: 'seed', topic: currentQuestion.topic, is_correct: correct, response: { selected: i } })
       if (error) console.error('Attempt sync failed:', error.message)
@@ -212,10 +229,11 @@ function App() {
   function chooseSubject(name: string) { if (name !== subject) { setSubject(name); setWeak([]) } }
   async function saveOnboarding() {
     const p: Profile = { grade, examDate, subject, weak }
-    save('ef-profile', p); setOnboarded(true); setShowOnboarding(false)
+    if (user) save(userStorageKey(user.id, 'profile'), p)
+    setOnboarded(true); setShowOnboarding(false)
     if (supabase && user) {
       const { error } = await supabase.from('profiles').upsert({ id: user.id, grade: Number(grade), exam_date: examDate, primary_subject: subject, weak_topics: weak })
-      if (error) console.error('Profile sync failed:', error.message)
+      if (error) { console.error('Profile sync failed:', error.message); setToast('Could not sync your study focus. Please try again.'); return }
     }
     setToast('Your study focus is set. Rewind first.')
   }
