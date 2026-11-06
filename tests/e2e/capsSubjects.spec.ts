@@ -58,5 +58,5 @@ test('search supports common aliases and legacy display names', () => {
   expect(searchCapsSubjects('CAT').some((item) => item.id === 'computer-applications-technology')).toBe(true)
   expect(searchCapsSubjects('Maths').some((item) => item.id === 'mathematics')).toBe(true)
   expect(searchCapsSubjects('Physical Science').some((item) => item.id === 'physical-science')).toBe(true)
-  expect(searchCapsSubjects('itsonga').some((item) => item.name.startsWith('itsonga '))).toBe(true)
+  expect(searchCapsSubjects('itsonga').some((item) => item.name.startsWith('Xitsonga '))).toBe(true)
 })
