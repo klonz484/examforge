@@ -207,12 +207,10 @@ function App() {
           setOnboarded(true); setShowOnboarding(false)
         }
       } else {
-        const { data: savedSubjects, error: savedSubjectsError } = await supabase.from('learner_subjects').select('subject_id').eq('user_id', result.data.user.id)
+        // Existing profiles are never replaced with the guest device's subject choices.
+        // Migration 002 backfills legacy primary_subject values into learner_subjects.
+        const { error: savedSubjectsError } = await supabase.from('learner_subjects').select('subject_id').eq('user_id', result.data.user.id)
         if (savedSubjectsError) console.error('Saved subjects could not be checked:', savedSubjectsError.message)
-        else if (!savedSubjects?.length) {
-          try { await syncLearnerSubjects(result.data.user.id) }
-          catch (syncError) { console.error('Subject sync failed:', syncError) }
-        }
       }
     }
     setAuthOpen(false); setPassword('')
