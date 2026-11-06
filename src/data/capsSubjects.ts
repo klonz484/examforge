@@ -64,17 +64,17 @@ const OFFICIAL_LANGUAGES = [
   'Setswana',
   'Siswati',
   'Tshivenda',
-  'itsonga',
+  'Xitsonga',
 ] as const
 
 const LANGUAGE_OFFERINGS: CapsSubject[] = OFFICIAL_LANGUAGES.flatMap((language) => {
-  const displayLanguage = language === 'itsonga' ? 'itsonga' : language
+  const displayLanguage = language === 'Xitsonga' ? 'Xitsonga' : language
   return ([
     { level: 'Home Language', code: 'hl' },
     { level: 'First Additional Language', code: 'fal' },
   ] as const).map(({ level, code }) => ({
     id: `language-${language.toLowerCase()}-${code}`,
-    name: `${displayLanguage} ${level}`,
+    name: `${language} ${level}`,
     category: 'languages' as const,
     grades: FET_GRADES,
     languageLevel: level,
@@ -94,7 +94,7 @@ const SECOND_ADDITIONAL_LANGUAGES = [
   'Setswana',
   'Siswati',
   'Tshivenda',
-  'itsonga',
+  'Xitsonga',
 ] as const
 
 const SECOND_ADDITIONAL_OFFERINGS: CapsSubject[] = SECOND_ADDITIONAL_LANGUAGES.map((language) => ({
