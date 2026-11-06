@@ -129,7 +129,22 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
     weak_topics: ['Mechanics', 'Electricity'],
   })
 
-  // A second account must not be able to read or overwrite the first student's profile.
+  // Daily subject choice must update the active profile without changing the enrolled subject set.
+  const dailySubject = page.getByLabel('What are you studying today?')
+  await dailySubject.selectOption('Accounting')
+  await expect.poll(async () => {
+    const result = await accountA.from('profiles').select('primary_subject').eq('id', userA!.id).single()
+    if (result.error) throw result.error
+    return result.data.primary_subject
+  }).toBe('Accounting')
+  await dailySubject.selectOption('Physical Science')
+  await expect.poll(async () => {
+    const result = await accountA.from('profiles').select('primary_subject').eq('id', userA!.id).single()
+    if (result.error) throw result.error
+    return result.data.primary_subject
+  }).toBe('Physical Science')
+
+    // A second account must not be able to read or overwrite the first student's profile.
   const accountB = client()
   const signInB = await accountB.auth.signInWithPassword({ email: emailB!, password: passwordB! })
   expect(signInB.error).toBeNull()
