@@ -49,10 +49,11 @@ test('student can complete onboarding and reopen saved study settings', async ({
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Grade 11' }).click()
   await page.getByRole('button', { name: /^Mathematics/ }).click()
-  for (const name of ['Accounting', 'Agricultural Management Practices', 'Agricultural Sciences', 'Agricultural Technology', 'Business Studies', 'Consumer Studies', 'Dance Studies', 'Design']) {
-    await page.getByRole('button', { name: new RegExp(name) }).click()
+  for (const name of ['Accounting', 'Agricultural Management Practices', 'Agricultural Sciences', 'Agricultural Technology', 'Business Studies', 'Consumer Studies', 'Dance Studies']) {
+    await page.locator('.catalogue-grid').getByRole('button', { name: new RegExp(`^${name}`) }).click()
   }
-  await expect(page.locator('.selected-count')).toHaveText('10 subjects selected')
+  await page.locator('.catalogue-grid .subject-card').filter({ hasText: /^Design/ }).first().click()
+  await expect(page.locator('.selected-count')).toHaveText('9 subjects selected')
   await page.getByLabel('Choose your starting subject').selectOption('Mathematics')
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
   await page.getByRole('button', { name: 'Functions', exact: true }).click()
@@ -99,7 +100,7 @@ test('legacy shared browser data never changes the signed-out default setup', as
 
   await expect(page.locator('input[type="date"]')).toHaveValue(dateValue)
   await expect(page.getByRole('button', { name: 'Grade 12' })).toHaveClass(/chosen/)
-  await expect(page.getByRole('button', { name: /Physical Science/ })).toHaveClass(/chosen/)
+  await expect(page.locator('.catalogue-grid .subject-card').filter({ hasText: /Physical Sciences/ })).toHaveClass(/chosen/)
   await expect(page.getByRole('button', { name: 'Mechanics', exact: true })).not.toHaveClass(/selected/)
   await expect(page.getByRole('button', { name: 'Electricity', exact: true })).not.toHaveClass(/selected/)
 })
