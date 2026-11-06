@@ -41,7 +41,7 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
 
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Grade 12' }).click()
-  await page.getByRole('button', { name: 'Mathematics', exact: true }).click()
+  await page.getByRole('button', { name: /^Mathematics/ }).click()
   await page.getByRole('button', { name: /Accounting/ }).click()
   await page.getByLabel('Choose your starting subject').selectOption('Physical Science')
   await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
