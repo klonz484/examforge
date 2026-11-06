@@ -53,7 +53,7 @@ test('student can complete onboarding and reopen saved study settings', async ({
     await page.locator('.catalogue-grid').getByRole('button', { name: new RegExp(`^${name}`) }).click()
   }
   await page.locator('.catalogue-grid .subject-card').filter({ hasText: /^Design/ }).first().click()
-  await expect(page.locator('.selected-count')).toHaveText('9 subjects selected')
+  await expect(page.locator('.selected-count')).toHaveText('10 subjects selected')
   await page.getByLabel('Choose your starting subject').selectOption('Mathematics')
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
   await page.getByRole('button', { name: 'Functions', exact: true }).click()
