@@ -169,8 +169,20 @@ function App() {
     if (!userEmail.includes('@')) { setToast('Enter a valid email address.'); return }
     if (password.length < 8) { setToast('Password must be at least 8 characters.'); return }
     const result = authMode === 'up' ? await supabase.auth.signUp({ email: userEmail, password }) : await supabase.auth.signInWithPassword({ email: userEmail, password })
-    if (result.error) setToast(result.error.message)
-    else { setAuthOpen(false); setPassword(''); setToast(authMode === 'up' ? 'Check your email to confirm your account.' : 'You are signed in.') }
+    if (result.error) { setToast(result.error.message); return }
+    // A first-time account may adopt the current guest setup once; existing accounts are never overwritten.
+    if (authMode === 'in' && result.data.user) {
+      const { data: existing } = await supabase.from('profiles').select('id').eq('id', result.data.user.id).maybeSingle()
+      if (!existing) {
+        const { error: seedError } = await supabase.from('profiles').upsert({
+          id: result.data.user.id, grade: Number(grade), exam_date: examDate,
+          primary_subject: subject, weak_topics: weak,
+        })
+        if (seedError) console.error('Initial profile save failed:', seedError.message)
+      }
+    }
+    setAuthOpen(false); setPassword('')
+    setToast(authMode === 'up' ? 'Check your email to confirm your account.' : 'You are signed in.')
   }
   async function signOut() { setMenuOpen(false); await supabase?.auth.signOut(); setToast('Signed out.') }
 
