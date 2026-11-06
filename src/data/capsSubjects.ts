@@ -201,7 +201,9 @@ export function getCapsSubjectsForGrade(grade: CapsGrade): CapsSubject[] {
 
 export function searchCapsSubjects(query: string, grade?: CapsGrade): CapsSubject[] {
   const normalized = query.trim().toLocaleLowerCase()
-  const source = grade\n    ? CAPS_SUBJECTS.filter((item) => item.grades.includes(grade) || item.status === 'caps-index-only')\n    : [...CAPS_SUBJECTS]
+  const source = grade
+    ? CAPS_SUBJECTS.filter((item) => item.grades.includes(grade) || item.status === 'caps-index-only')
+    : [...CAPS_SUBJECTS]
   if (!normalized) return source
   return source.filter((item) =>
     [item.name, ...(item.aliases ?? []), ...(item.legacyNames ?? [])].some((value) =>
