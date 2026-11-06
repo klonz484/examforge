@@ -93,6 +93,6 @@ test('legacy shared browser data never changes the signed-out default setup', as
   await expect(page.locator('input[type="date"]')).toHaveValue(dateValue)
   await expect(page.getByRole('button', { name: 'Grade 12' })).toHaveClass(/chosen/)
   await expect(page.getByRole('button', { name: /Physical Science/ })).toHaveClass(/chosen/)
-  await expect(page.getByRole('button', { name: 'Algebra', exact: true })).not.toHaveClass(/selected/)
-  await expect(page.getByRole('button', { name: 'Functions', exact: true })).not.toHaveClass(/selected/)
+  await expect(page.getByRole('button', { name: 'Mechanics', exact: true })).not.toHaveClass(/selected/)
+  await expect(page.getByRole('button', { name: 'Electricity', exact: true })).not.toHaveClass(/selected/)
 })
