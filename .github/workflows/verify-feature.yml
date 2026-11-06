@@ -5,6 +5,10 @@ on:
       - 'feat/**'
   workflow_dispatch:
 
+concurrency:
+  group: feature-verify-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
