@@ -48,7 +48,7 @@ test('student can complete onboarding and reopen saved study settings', async ({
 
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Grade 11' }).click()
-  await page.getByRole('button', { name: 'Mathematics', exact: true }).click()
+  await page.getByRole('button', { name: /^Mathematics/ }).click()
   for (const name of ['Accounting', 'Agricultural Management Practices', 'Agricultural Sciences', 'Agricultural Technology', 'Business Studies', 'Consumer Studies', 'Dance Studies', 'Design']) {
     await page.getByRole('button', { name: new RegExp(name) }).click()
   }
@@ -71,7 +71,7 @@ test('student can complete onboarding and reopen saved study settings', async ({
   await expect(page.getByRole('heading', { name: /Set up your exam focus/ })).toBeVisible()
   await expect(page.locator('input[type="date"]')).toHaveValue(dateValue)
   await expect(page.getByRole('button', { name: 'Grade 11' })).toHaveClass(/chosen/)
-  await expect(page.getByRole('button', { name: 'Mathematics', exact: true })).toHaveClass(/chosen/)
+  await expect(page.getByRole('button', { name: /^Mathematics/ })).toHaveClass(/chosen/)
   await expect(page.getByRole('button', { name: /Accounting/ })).toHaveClass(/chosen/)
   await expect(page.getByRole('button', { name: 'Algebra', exact: true })).toHaveClass(/selected/)
   await expect(page.getByRole('button', { name: 'Functions', exact: true })).toHaveClass(/selected/)
@@ -111,7 +111,7 @@ test('learner can freely switch daily subject without receiving another subject 
   const d = new Date(); d.setDate(d.getDate() + 30)
   const dateValue = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-')
   await page.locator('input[type="date"]').fill(dateValue)
-  await page.getByRole('button', { name: 'Mathematics', exact: true }).click()
+  await page.getByRole('button', { name: /^Mathematics/ }).click()
   await page.getByRole('button', { name: /Accounting/ }).click()
   await page.getByLabel('Choose your starting subject').selectOption('Mathematics')
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
