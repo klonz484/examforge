@@ -85,3 +85,36 @@ The DBE 2023–2024 ATP index is a useful grade-specific implementation referenc
 - Do not expose all catalogue entries as fully supported learning courses until grade-specific ATP, CAPS topics, assessment guidance and source rights have been checked.
 - Preserve the existing Mathematics and Physical Science IDs. Display label should be "Physical Sciences" in curriculum-facing UI, with "Physical Science" retained as a legacy alias.
 - Add South African Sign Language Home Language as a specialist language catalogue entry; do not imply ordinary availability across schools.
+
+
+## Grade-level ATP reconciliation — 6 November 2026
+
+The DBE FET ATP index was checked section-by-section for Grades 10, 11 and 12. It lists the 11 South African spoken languages separately at Home Language, First Additional Language and Second Additional Language levels in all three grades. South African Sign Language appears at Home Language level in all three grades; the Grade 11 ATP index also lists it under Second Additional Language. SASL remains marked specialist in ExamForge because its eligibility and assessment arrangements are not equivalent to an ordinary spoken-language offering. French and Mandarin appear in the CAPS FET language index at Second Additional Language level but are not listed in the FET ATP index tables reviewed, so they remain discoverable with no grade-availability claim.
+
+The ATP index lists the core FET content subject set in Grades 10, 11 and 12. Technical/creative streams are represented as distinct ATP pathways rather than flattened into generic course names:
+- Mechanical Technology: Automotive; Fitting and Machining; Welding and Metalworks.
+- Electrical Technology: Digital Electronics; Electronics; Power Systems.
+- Civil Technology: Civil Services; Construction.
+- Music: Jazz; Western Art Music (WAM); Indigenous African Music (IAM).
+- Woodworking.
+
+**2026 currency check:** DBE Circular S19 of 2025 says the 2023/2024 ATPs remain applicable for 2026 with exclusions. The retention excludes CAT and IT; DBE says their updated technologies were communicated through Circular S9 of 2025. Therefore CAT and IT are retained in the CAPS discovery catalogue but are not marked as confirmed ATP-listed grade offerings until the updated CAT/IT curriculum and grade plans are mapped. The 2023/24 ATP list is not treated as current authority for those two subjects.
+
+Other CAPS FET index entries not confirmed in the FET ATP grade tables reviewed (including Equine Studies, Marine Sciences, Maritime Economics, Nautical Science and Sport and Exercise Science) remain searchable catalogue entries with no Grade 10–12 ATP availability asserted. Technical and specialist availability is still school-dependent even where an ATP exists.
+
+### Catalogue metadata contract
+
+- `atp-listed`: DBE FET ATP index lists the offering for each grade shown in `grades`.
+- `specialist-atp`: ATP listing exists, but specialist eligibility/assessment needs a visible caution.
+- `caps-index-only`: CAPS index listing exists, but current grade-specific ATP offering has not been verified; `grades` is empty.
+- `pathway-parent`: umbrella label for discovery only; learners should select a verified pathway child instead.
+
+The grade filter returns only ATP-listed or specialist-ATP offerings with that grade. The unfiltered catalogue search can still discover CAPS-index-only subjects, but these must not be presented as complete supported ExamForge courses. A school may not offer every ATP-listed subject or pathway.
+
+### Official source references checked
+
+- DBE 2023/24 FET ATP index: https://www.education.gov.za/Curriculum/NationalCurriculumStatementsGradesR-12/2023ATPsFET.aspx
+- DBE 2023/24 ATP index, grade and subject sections: Grades 10 (languages/content subjects), 11 (languages/content subjects), and 12 (languages/content subjects).
+- DBE Circular S19 of 2025 (retention for 2026 and exclusions): https://www.education.gov.za/LinkClick.aspx?fileticket=fqHc5ZnT_q4%3D&mid=10757&portalid=0&tabid=3209
+- DBE National Circulars (including Circular S9 of 2025, updated CAT and IT CAPS): https://www.education.gov.za/Curriculum/NationalCirculars.aspx
+- DBE CAPS FET index: https://www.education.gov.za/Curriculum/NCSGradesR12/CAPSFET/tabid/570/Default.aspx
