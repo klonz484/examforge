@@ -82,7 +82,7 @@ function pickQuestions(subject: string, weak: string[]): Question[] {
 function App() {
   const [tab, setTab] = useState<Tab>('Dashboard')
   const [subject, setSubject] = useState('Physical Science')
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>(['physical-science', 'mathematics'])
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>(['physical-science'])
   const [subjectSearch, setSubjectSearch] = useState('')
   const [grade, setGrade] = useState('12')
   const [examDate, setExamDate] = useState(() => dateAfterDays(20))
@@ -149,7 +149,7 @@ function App() {
     setRewindOpen(false); setSeconds(0); setRemoteDates([]); setNotes([]); setNoteStatus('')
     setSessions(userId ? load<Session[]>(userStorageKey(userId, 'sessions'), []) : [])
     setAttempts(userId ? load<Attempt[]>(userStorageKey(userId, 'attempts'), []) : [])
-    setWeak([]); setGrade('12'); setSubject('Physical Science'); setSelectedSubjectIds(['physical-science', 'mathematics']); setSubjectSearch(''); setExamDate(dateAfterDays(20))
+    setWeak([]); setGrade('12'); setSubject('Physical Science'); setSelectedSubjectIds(['physical-science']); setSubjectSearch(''); setExamDate(dateAfterDays(20))
     setOnboarded(false); setShowOnboarding(true)
     if (!userId || !supabase) return
     const client = supabase
