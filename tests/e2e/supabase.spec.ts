@@ -49,6 +49,17 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.getByRole('button', { name: /Save my subjects/ }).click()
   await expect(page.getByRole('heading', { name: /Tonight’s 20/ })).toBeVisible()
 
+  // Reset only the dedicated E2E account's own profile rows so repeated runs are deterministic.
+  const cleanupClient = client()
+  const cleanupSignIn = await cleanupClient.auth.signInWithPassword({ email: emailA!, password: passwordA! })
+  expect(cleanupSignIn.error).toBeNull()
+  const cleanupUserId = cleanupSignIn.data.user!.id
+  const clearedSubjects = await cleanupClient.from('learner_subjects').delete().eq('user_id', cleanupUserId)
+  expect(clearedSubjects.error).toBeNull()
+  const clearedProfile = await cleanupClient.from('profiles').delete().eq('id', cleanupUserId)
+  expect(clearedProfile.error).toBeNull()
+  await cleanupClient.auth.signOut()
+
   // Sign in through the real UI so the app can sync onboarding to the student's account.
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /Account \/ sign in/ }).click()
