@@ -69,3 +69,30 @@ test('student can complete onboarding and reopen saved study settings', async ({
   await expect(page.getByRole('button', { name: 'Algebra', exact: true })).toHaveClass(/selected/)
   await expect(page.getByRole('button', { name: 'Functions', exact: true })).toHaveClass(/selected/)
 })
+
+
+test('legacy shared browser data never changes the signed-out default setup', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('ef-profile', JSON.stringify({
+      grade: '10', examDate: '2026-11-20', subject: 'Mathematics', weak: ['Algebra', 'Functions'],
+    }))
+    localStorage.setItem('ef-sessions', JSON.stringify([{ date: '2026-11-06', score: 5, seconds: 120, subject: 'Mathematics' }]))
+    localStorage.setItem('ef-attempts', JSON.stringify([{ topic: 'Algebra', correct: true, t: Date.now() }]))
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/examforge/')
+
+  const expectedDate = new Date()
+  expectedDate.setDate(expectedDate.getDate() + 20)
+  const dateValue = [
+    expectedDate.getFullYear(),
+    String(expectedDate.getMonth() + 1).padStart(2, '0'),
+    String(expectedDate.getDate()).padStart(2, '0'),
+  ].join('-')
+
+  await expect(page.locator('input[type="date"]')).toHaveValue(dateValue)
+  await expect(page.getByRole('button', { name: 'Grade 12' })).toHaveClass(/chosen/)
+  await expect(page.getByRole('button', { name: /Physical Science/ })).toHaveClass(/chosen/)
+  await expect(page.getByRole('button', { name: 'Algebra', exact: true })).not.toHaveClass(/selected/)
+  await expect(page.getByRole('button', { name: 'Functions', exact: true })).not.toHaveClass(/selected/)
+})
