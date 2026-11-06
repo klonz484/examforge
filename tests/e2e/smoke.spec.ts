@@ -49,6 +49,8 @@ test('student can complete onboarding and reopen saved study settings', async ({
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Grade 11' }).click()
   await page.getByRole('button', { name: /Mathematics/ }).click()
+  await page.getByRole('button', { name: /Accounting/ }).click()
+  await page.getByLabel('Choose your starting subject').selectOption('Mathematics')
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
   await page.getByRole('button', { name: 'Functions', exact: true }).click()
 
@@ -58,6 +60,7 @@ test('student can complete onboarding and reopen saved study settings', async ({
 
   await expect(page.getByRole('heading', { name: /Tonight’s 20/ })).toBeVisible()
   await expect(page.locator('.dashboard-pills .pill')).toContainText(['Algebra', 'Functions'])
+  await expect(page.getByLabel('What are you studying today?')).toHaveValue('Mathematics')
 
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /Study settings/ }).click()
@@ -66,6 +69,7 @@ test('student can complete onboarding and reopen saved study settings', async ({
   await expect(page.locator('input[type="date"]')).toHaveValue(dateValue)
   await expect(page.getByRole('button', { name: 'Grade 11' })).toHaveClass(/chosen/)
   await expect(page.getByRole('button', { name: /Mathematics/ })).toHaveClass(/chosen/)
+  await expect(page.getByRole('button', { name: /Accounting/ })).toHaveClass(/chosen/)
   await expect(page.getByRole('button', { name: 'Algebra', exact: true })).toHaveClass(/selected/)
   await expect(page.getByRole('button', { name: 'Functions', exact: true })).toHaveClass(/selected/)
 })
