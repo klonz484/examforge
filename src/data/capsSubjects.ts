@@ -73,7 +73,7 @@ const LANGUAGES = [
   ['setswana', 'Setswana'],
   ['siswati', 'siSwati'],
   ['tshivenda', 'Tshivenda'],
-  ['itsonga', 'itsonga'],
+  ['itsonga', 'Xitsonga'],
 ] as const
 
 const languageOffering = (
