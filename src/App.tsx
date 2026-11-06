@@ -179,6 +179,11 @@ function App() {
           primary_subject: subject, weak_topics: weak,
         })
         if (seedError) console.error('Initial profile save failed:', seedError.message)
+        else {
+          const firstProfile: Profile = { grade, examDate, subject, weak }
+          save(userStorageKey(result.data.user.id, 'profile'), firstProfile)
+          setOnboarded(true); setShowOnboarding(false)
+        }
       }
     }
     setAuthOpen(false); setPassword('')
