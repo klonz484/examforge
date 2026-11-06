@@ -49,7 +49,10 @@ test('student can complete onboarding and reopen saved study settings', async ({
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Grade 11' }).click()
   await page.getByRole('button', { name: /Mathematics/ }).click()
-  await page.getByRole('button', { name: /Accounting/ }).click()
+  for (const name of ['Accounting', 'Agricultural Management Practices', 'Agricultural Sciences', 'Agricultural Technology', 'Business Studies', 'Consumer Studies', 'Dance Studies', 'Design']) {
+    await page.getByRole('button', { name: new RegExp(name) }).click()
+  }
+  await expect(page.locator('.selected-count')).toHaveText('9 subjects selected')
   await page.getByLabel('Choose your starting subject').selectOption('Mathematics')
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
   await page.getByRole('button', { name: 'Functions', exact: true }).click()
