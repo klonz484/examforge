@@ -275,15 +275,14 @@ function App() {
   function toggleTopic(topic: string) { setWeak(w => w.includes(topic) ? w.filter(t => t !== topic) : [...w, topic]) }
   function chooseSubject(name: string) { if (name !== subject) { setSubject(name); setWeak([]) } }
   function toggleEnrolledSubject(id: string) {
-    setSelectedSubjectIds(current => {
-      if (current.includes(id)) {
-        if (current.length === 1) { setToast('Keep at least one subject selected.'); return current }
-        const next = current.filter(value => value !== id)
-        if (subjectId(subject) === id) setSubject(subjectName(next[0]))
-        return next
-      }
-      return [...current, id]
-    })
+    if (selectedSubjectIds.includes(id)) {
+      if (selectedSubjectIds.length === 1) { setToast('Keep at least one subject selected.'); return }
+      const next = selectedSubjectIds.filter(value => value !== id)
+      setSelectedSubjectIds(next)
+      if (subjectId(subject) === id) setSubject(subjectName(next[0]))
+      return
+    }
+    setSelectedSubjectIds([...selectedSubjectIds, id])
   }
   async function syncLearnerSubjects(userId: string) {
     if (!supabase) return
