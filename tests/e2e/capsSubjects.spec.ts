@@ -60,3 +60,10 @@ test('search supports common aliases and legacy display names', () => {
   expect(searchCapsSubjects('Physical Science').some((item) => item.id === 'physical-science')).toBe(true)
   expect(searchCapsSubjects('itsonga').some((item) => item.name.startsWith('Xitsonga '))).toBe(true)
 })
+
+test('grade-scoped search keeps unverified CAPS entries discoverable and labelled', () => {
+  const result = searchCapsSubjects('Equine', 12)
+  expect(result).toHaveLength(1)
+  expect(result[0].status).toBe('caps-index-only')
+  expect(result[0].grades).toHaveLength(0)
+})
