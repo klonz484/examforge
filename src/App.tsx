@@ -274,13 +274,33 @@ function App() {
     setNotes([]); setNoteStatus('Upload complete. AI question drafting is not switched on yet — your notes are stored privately.')
   }
   function toggleTopic(topic: string) { setWeak(w => w.includes(topic) ? w.filter(t => t !== topic) : [...w, topic]) }
-  function chooseSubject(name: string) { if (name !== subject) { setSubject(name); setWeak([]) } }
+  async function chooseSubject(name: string, persist = true) {
+    if (name === subject) return
+    setSubject(name)
+    setWeak([])
+    if (persist && user && supabase) {
+      const { error } = await supabase.from('profiles').update({ primary_subject: name, weak_topics: [] }).eq('id', user.id)
+      if (error) {
+        console.error('Daily subject sync failed:', error.message)
+        setToast('Subject changed for this session, but could not sync to your account.')
+      } else {
+        const current = load<Profile | null>(userStorageKey(user.id, 'profile'), null)
+        save(userStorageKey(user.id, 'profile'), {
+          grade: current?.grade ?? grade,
+          examDate: current?.examDate ?? examDate,
+          subject: name,
+          weak: [],
+          subjects: selectedSubjectIds,
+        })
+      }
+    }
+  }
   function toggleEnrolledSubject(id: string) {
     if (selectedSubjectIds.includes(id)) {
       if (selectedSubjectIds.length === 1) { setToast('Keep at least one subject selected.'); return }
       const next = selectedSubjectIds.filter(value => value !== id)
       setSelectedSubjectIds(next)
-      if (subjectId(subject) === id) setSubject(subjectName(next[0]))
+      if (subjectId(subject) === id) void chooseSubject(subjectName(next[0]), false)
       return
     }
     setSelectedSubjectIds([...selectedSubjectIds, id])
@@ -315,7 +335,7 @@ function App() {
     setToast('Your subjects are saved. Choose what to study each day.')
   }
 
-  if (showOnboarding) return <div className="onboard-wrap"><div className="brand"><span className="brand-mark"><Flame size={29} fill="currentColor"/></span><span>Exam<span>Forge</span></span></div><div className="onboard-hero"><p className="eyebrow">STUDY. PRACTICE. EXCEL.</p><h1>Set up your<br/><em>exam focus</em></h1><p className="muted">We’ll tailor your practice to what matters most.</p></div><section className="panel onboarding"><label className="field-label"><CalendarDays size={18}/> Exam date</label><input type="date" min={today} value={examDate} onChange={e=>setExamDate(e.target.value)}/><label className="field-label"><UserRound size={18}/> Your grade</label><div className="choice-row">{['10','11','12'].map(g=><button key={g} className={`choice ${grade===g?'chosen':''}`} onClick={()=>setGrade(g)}>Grade {g}</button>)}</div><label className="field-label"><Settings2 size={18}/> Choose all your subjects</label><p className="hint">Select as many as you study. This is your ExamForge library, not a school registration limit.</p><div className="searchbox subject-search"><Search size={17}/><input aria-label="Search subjects" placeholder="Search CAPS subjects…" value={subjectSearch} onChange={e=>setSubjectSearch(e.target.value)}/></div><p className="selected-count">{selectedSubjectIds.length} subject{selectedSubjectIds.length===1?'':'s'} selected</p><label className="field-label" htmlFor="first-subject">Choose your starting subject</label><select id="first-subject" className="daily-subject-select" value={subject} onChange={e=>chooseSubject(e.target.value)}>{enrolledSubjects.map(name=><option key={name} value={name}>{name}</option>)}</select><div className="subject-grid catalogue-grid">{availableSubjects.map(item=><button type="button" key={item.id} aria-pressed={selectedSubjectIds.includes(item.id)} className={`subject-card ${selectedSubjectIds.includes(item.id)?'chosen':''}`} onClick={()=>toggleEnrolledSubject(item.id)}><span className="subject-check">{selectedSubjectIds.includes(item.id)?<Check size={16}/>:<Plus size={16}/>}</span><b>{item.name}</b><small>{item.languageLevel ?? item.category.replace(/-/g, ' ')}{item.status==='caps-index-only'?' · School/curriculum confirmation needed':''}{item.status==='specialist-atp'?' · Specialist offering':''}</small></button>)}</div><label className="field-label"><Target size={18}/> Weak topics for {subject}</label>{topics.length>0?<><div className="topic-pills">{topics.map(t=><button key={t} onClick={()=>toggleTopic(t)} className={`pill ${weak.includes(t)?'selected':''}`}>{t}</button>)}</div><p className="hint">Choose at least 2 topics. You can change these anytime.</p></>:<p className="hint">Topic-level personalization will appear when this subject’s curriculum roadmap is added.</p>}<button className="primary full" disabled={selectedSubjectIds.length===0 || !examDate || (topics.length>0 && weak.length<2)} onClick={saveOnboarding}>Save my subjects <ChevronRight size={20}/></button><p className="privacy"><LockKeyhole size={14}/> Your data stays private. Focus built for you.</p></section></div>
+  if (showOnboarding) return <div className="onboard-wrap"><div className="brand"><span className="brand-mark"><Flame size={29} fill="currentColor"/></span><span>Exam<span>Forge</span></span></div><div className="onboard-hero"><p className="eyebrow">STUDY. PRACTICE. EXCEL.</p><h1>Set up your<br/><em>exam focus</em></h1><p className="muted">We’ll tailor your practice to what matters most.</p></div><section className="panel onboarding"><label className="field-label"><CalendarDays size={18}/> Exam date</label><input type="date" min={today} value={examDate} onChange={e=>setExamDate(e.target.value)}/><label className="field-label"><UserRound size={18}/> Your grade</label><div className="choice-row">{['10','11','12'].map(g=><button key={g} className={`choice ${grade===g?'chosen':''}`} onClick={()=>setGrade(g)}>Grade {g}</button>)}</div><label className="field-label"><Settings2 size={18}/> Choose all your subjects</label><p className="hint">Select as many as you study. This is your ExamForge library, not a school registration limit.</p><div className="searchbox subject-search"><Search size={17}/><input aria-label="Search subjects" placeholder="Search CAPS subjects…" value={subjectSearch} onChange={e=>setSubjectSearch(e.target.value)}/></div><p className="selected-count">{selectedSubjectIds.length} subject{selectedSubjectIds.length===1?'':'s'} selected</p><label className="field-label" htmlFor="first-subject">Choose your starting subject</label><select id="first-subject" className="daily-subject-select" value={subject} onChange={e=>chooseSubject(e.target.value, false)}>{enrolledSubjects.map(name=><option key={name} value={name}>{name}</option>)}</select><div className="subject-grid catalogue-grid">{availableSubjects.map(item=><button type="button" key={item.id} aria-pressed={selectedSubjectIds.includes(item.id)} className={`subject-card ${selectedSubjectIds.includes(item.id)?'chosen':''}`} onClick={()=>toggleEnrolledSubject(item.id)}><span className="subject-check">{selectedSubjectIds.includes(item.id)?<Check size={16}/>:<Plus size={16}/>}</span><b>{item.name}</b><small>{item.languageLevel ?? item.category.replace(/-/g, ' ')}{item.status==='caps-index-only'?' · School/curriculum confirmation needed':''}{item.status==='specialist-atp'?' · Specialist offering':''}</small></button>)}</div><label className="field-label"><Target size={18}/> Weak topics for {subject}</label>{topics.length>0?<><div className="topic-pills">{topics.map(t=><button key={t} onClick={()=>toggleTopic(t)} className={`pill ${weak.includes(t)?'selected':''}`}>{t}</button>)}</div><p className="hint">Choose at least 2 topics. You can change these anytime.</p></>:<p className="hint">Topic-level personalization will appear when this subject’s curriculum roadmap is added.</p>}<button className="primary full" disabled={selectedSubjectIds.length===0 || !examDate || (topics.length>0 && weak.length<2)} onClick={saveOnboarding}>Save my subjects <ChevronRight size={20}/></button><p className="privacy"><LockKeyhole size={14}/> Your data stays private. Focus built for you.</p></section></div>
 
   return <div className="app-shell">
     <header className="topbar"><div className="brand"><span className="brand-mark"><Flame size={28} fill="currentColor"/></span><span>Exam<span>Forge</span><small>Study. Practice. Excel.</small></span></div><div className="top-actions"><span className={`connection ${isSupabaseConfigured?'online':''}`} title={isSupabaseConfigured?(user?'Signed in':'Supabase configured — not signed in'):'Demo mode'}></span><button className="icon-btn" onClick={()=>setMenuOpen(v=>!v)} aria-label="Menu" aria-expanded={menuOpen}><Menu/></button></div></header>
