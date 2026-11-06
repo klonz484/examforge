@@ -41,10 +41,12 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
 
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Grade 12' }).click()
-  await page.getByRole('button', { name: /Physical Science/ }).click()
+  await page.getByRole('button', { name: /Mathematics/ }).click()
+  await page.getByRole('button', { name: /Accounting/ }).click()
+  await page.getByLabel('Choose your starting subject').selectOption('Physical Science')
   await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
   await page.getByRole('button', { name: 'Electricity', exact: true }).click()
-  await page.getByRole('button', { name: /Start Forging/ }).click()
+  await page.getByRole('button', { name: /Save my subjects/ }).click()
   await expect(page.getByRole('heading', { name: /Tonight’s 20/ })).toBeVisible()
 
   // Sign in through the real UI so the app can sync onboarding to the student's account.
@@ -78,6 +80,12 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
     weak_topics: ['Mechanics', 'Electricity'],
   })
 
+  const ownSubjects = await accountA.from('learner_subjects')
+    .select('subject_id')
+    .eq('user_id', userA!.id)
+  expect(ownSubjects.error).toBeNull()
+  expect((ownSubjects.data ?? []).map(row => row.subject_id).sort()).toEqual(['accounting', 'mathematics', 'physical-science'])
+
   const ownProfile = await accountA.from('profiles')
     .select('id,grade,exam_date,primary_subject,weak_topics')
     .eq('id', userA!.id)
@@ -102,6 +110,18 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
     .eq('id', userA!.id)
   expect(crossAccountRead.error).toBeNull()
   expect(crossAccountRead.data).toEqual([])
+
+  const otherSubjects = await accountB.from('learner_subjects').select('subject_id').eq('user_id', userA!.id)
+  expect(otherSubjects.error).toBeNull()
+  expect(otherSubjects.data).toEqual([])
+
+  const forgedSubject = await accountB.from('learner_subjects').insert({
+    user_id: userA!.id,
+    subject_id: 'forged-subject',
+    subject_name: 'Forged subject',
+    category: 'other',
+  })
+  expect(forgedSubject.error).not.toBeNull()
 
   const forgedInsert = await accountB.from('profiles').insert({
     id: userA!.id,
