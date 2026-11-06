@@ -22,5 +22,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
-      - name: CAPS catalogue integrity tests
-        run: npx playwright test tests/e2e/capsSubjects.spec.ts
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Catalogue and onboarding browser tests
+        run: npx playwright test tests/e2e/capsSubjects.spec.ts tests/e2e/smoke.spec.ts
