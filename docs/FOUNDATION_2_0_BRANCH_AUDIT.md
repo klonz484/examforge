@@ -91,3 +91,19 @@ The first isolated product-code port is now committed on this branch:
 This is catalogue metadata and test coverage only. It does not yet wire the catalogue into onboarding or the dashboard, and it does not create learner-subject database records.
 
 Verification run for this port: [42390251372](https://github.com/klonz484/examforge/actions/runs/42390251372). The workflow was still running at the time this note was added; its result must be checked before treating the catalogue port as verified.
+
+
+## 8. Phase 0 exit review — 7 November 2026
+
+Phase 0 (Foundation stabilisation) has met its documented exit criteria on the foundation branch. Evidence:
+
+- Branch comparison against `main`: `foundation/examforge-foundation-2` is 27 commits ahead and 0 behind; merge base is current production baseline `259df190812ad9d47405d3402b90998fafbd2fc3`. No production merge was performed.
+- Latest head: `2839d012901713f5a87471e81b1c66a06129fce6` (`test: clear existing topic selections safely`).
+- Full isolated verification: [run 42393214592](https://github.com/klonz484/examforge/actions/runs/42393214592) completed successfully. Locked dependency installation (`npm ci`), TypeScript/production build, Playwright browser installation (Chromium, Firefox, WebKit), and the complete browser/integration suite all passed.
+- The four selector/setup failures in earlier run 42392328332 were corrected through focused test commits; the later complete run above is the evidence used for this exit review.
+- Shared UI tests remain part of the full passing Playwright suite.
+- `.github/workflows/verify-foundation.yml` is read-only, has no Pages deployment step, and does not apply Supabase migrations. It runs separately from production deployment.
+- Selective-port and integration plan is documented in section 5 above. The heavily diverged legacy feature branch remains excluded from wholesale merge.
+- Open PR #1 (reuse-first contribution workflow) remains separate and unmerged; no action on it is required to complete this foundation-branch baseline. Review/merge decisions remain separate from this work.
+
+**Phase 0 status: COMPLETE on the foundation branch.** This does not mean the feature branch is merged or deployed. Manual accessibility validation, staging database/RLS tests, and production release checks remain assigned to later phases and their explicit exit criteria.
