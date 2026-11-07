@@ -103,7 +103,10 @@ $$;
 delete from public.learner_subjects
 where user_id = '00000000-0000-0000-0000-000000000002';
 
-do $$
+-- Verify preservation as the database owner; Account A is intentionally
+-- unable to SELECT Account B's row under RLS.
+reset role;
+do $
 begin
   if not exists (select 1 from public.learner_subjects where user_id = '00000000-0000-0000-0000-000000000002' and subject_id = 'physical-science') then
     raise exception 'Account A deleted account B subject data';
