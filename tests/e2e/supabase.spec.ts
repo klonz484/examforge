@@ -58,15 +58,19 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.locator('input[type="password"]').fill(passwordA!)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page.getByText('You are signed in.')).toBeVisible()
+  // Wait until the account-scoped profile hydration has completed before editing settings.
+  await page.waitForFunction(() => Object.keys(localStorage).some(key => key.startsWith('ef:') && key.endsWith(':profile')))
 
   // Test an existing account too: explicitly save the edited focus instead of assuming
   // a previously-used test account has no profile row.
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /Study settings/ }).click()
   await page.locator('input[type="date"]').fill(dateValue)
-  await page.getByRole('button', { name: 'Mathematics ATP-listed', exact: true }).click()
+  const mathematicsOption = page.getByRole('button', { name: 'Mathematics ATP-listed', exact: true })
+  if (await mathematicsOption.getAttribute('aria-pressed') !== 'true') await mathematicsOption.click()
   // Select Mathematics as the first study focus before choosing its topics.
   await page.getByLabel('Choose your first study focus').selectOption('mathematics')
+  for (const selectedTopic of await page.locator('.topic-pills .pill.selected').all()) await selectedTopic.click()
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
   await page.getByRole('button', { name: 'Functions', exact: true }).click()
   await page.getByRole('button', { name: /Start Forging/ }).click()
@@ -103,8 +107,8 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
     id: userA!.id,
     grade: 12,
     exam_date: dateValue,
-    primary_subject: 'Physical Science',
-    weak_topics: ['Mechanics', 'Electricity'],
+    primary_subject: 'Mathematics',
+    weak_topics: ['Algebra', 'Functions'],
   })
 
   // A second account must not be able to read or overwrite the first student's profile.
