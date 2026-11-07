@@ -9,6 +9,9 @@ const passwordA = process.env.E2E_TEST_PASSWORD_A
 const emailB = process.env.E2E_TEST_EMAIL_B
 const passwordB = process.env.E2E_TEST_PASSWORD_B
 
+// These tests create and delete real user-owned records. Only run when an explicitly disposable staging project and its test accounts are configured.
+test.skip(process.env.SUPABASE_IS_DISPOSABLE_STAGING !== 'true' || !url || !anonKey || !emailA || !passwordA || !emailB || !passwordB, 'Requires explicitly designated disposable Supabase staging credentials; never run against production.')
+
 function client() {
   if (!url || !anonKey) throw new Error('Supabase test configuration is missing.')
   return createClient(url, anonKey, {
