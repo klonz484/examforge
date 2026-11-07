@@ -69,8 +69,8 @@ begin
   end if;
 
   if exists (
-    select 1 from unnest(p_subject_ids) as item
-    where item is null or btrim(item) = ''
+    select 1 from unnest(p_subject_ids) as requested(subject_id)
+    where requested.subject_id is null or btrim(requested.subject_id) = ''
   ) then
     raise exception 'Subject identifiers cannot be blank' using errcode = '22023';
   end if;
@@ -89,8 +89,8 @@ begin
   insert into public.learner_subjects (user_id, subject_id)
   select v_user_id, distinct_subject
   from (
-    select distinct btrim(item) as distinct_subject
-    from unnest(p_subject_ids) as item
+    select distinct btrim(requested.subject_id) as distinct_subject
+    from unnest(p_subject_ids) as requested(subject_id)
   ) selected;
 end;
 $$;
