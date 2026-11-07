@@ -202,20 +202,28 @@ function App() {
         shouldSeed = !existing
       }
       if (shouldSeed) {
-        const legacySubject = selectedSubjectIds.includes('mathematics') ? 'Mathematics' : 'Physical Science'
+        // If email confirmation delayed the first save, adopt the guest setup only
+        // when this account has no profile. Existing accounts are never overwritten.
+        const guestProfile = load<Profile | null>(userStorageKey(null, 'profile'), null)
+        const guestSubjects = load<string[]>(userStorageKey(null, 'subjects'), [])
+        const seedProfile = guestProfile ?? { grade, examDate, subject, weak }
+        const seedSubjects = guestSubjects.length ? guestSubjects : selectedSubjectIds
+        const legacySubject = seedSubjects.includes('mathematics') ? 'Mathematics' : seedProfile.subject
         const { error: seedError } = await supabase.rpc('save_learner_onboarding', {
-          p_grade: Number(grade), p_exam_date: examDate || null,
-          p_primary_subject: legacySubject, p_weak_topics: weak,
-          p_subject_ids: selectedSubjectIds,
+          p_grade: Number(seedProfile.grade), p_exam_date: seedProfile.examDate || null,
+          p_primary_subject: legacySubject, p_weak_topics: seedProfile.weak,
+          p_subject_ids: seedSubjects,
         })
         if (seedError) {
           console.error('Initial onboarding save failed:', seedError.message)
           setToast('Account created, but your study setup could not be saved yet. Please finish setup again after the database update.')
           return
         }
-        const firstProfile: Profile = { grade, examDate, subject: legacySubject, weak }
+        const firstProfile: Profile = { ...seedProfile, subject: legacySubject }
         save(userStorageKey(result.data.user.id, 'profile'), firstProfile)
-        save(userStorageKey(result.data.user.id, 'subjects'), selectedSubjectIds)
+        save(userStorageKey(result.data.user.id, 'subjects'), seedSubjects)
+        setGrade(firstProfile.grade); setExamDate(firstProfile.examDate); setSubject(firstProfile.subject)
+        setWeak(firstProfile.weak); setSelectedSubjectIds(seedSubjects)
       }
     }
     setAuthOpen(false); setPassword('')
