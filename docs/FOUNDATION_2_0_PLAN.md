@@ -319,3 +319,24 @@ The next engineering session should:
 6. Report exactly what changed, what passed, what remains, and the next concrete action.
 
 **Do not start Phase 2 by pretending sample questions are production-ready.** First finish the learner foundation, then build the complete learning loop using properly sourced and labelled content.
+
+
+## 10. Roadmap progress log — 7 November 2026
+
+### Phase 0 — Foundation stabilisation: COMPLETE (foundation branch only)
+
+Verified exit evidence:
+- Foundation branch is based on the latest reviewed `main` baseline `259df190812ad9d47405d3402b90998fafbd2fc3`; comparison reports 27 commits ahead and 0 behind.
+- Current verified head before this documentation update: `2839d012901713f5a87471e81b1c66a06129fce6`.
+- [Foundation verification run #22](https://github.com/klonz484/examforge/actions/runs/42393214592) completed successfully: `npm ci`, TypeScript/production build, Chromium/Firefox/WebKit installation, and full Playwright browser/integration suite all passed.
+- Shared accessible UI tests remain intact in the passing suite.
+- The isolated foundation workflow has read-only repository permissions and no deployment or live Supabase migration steps.
+- Branch audit documents the selective integration/PR plan and explicitly excludes wholesale merge of the diverged legacy feature branch.
+
+The earlier failed browser run was corrected and is retained in history; completion is based on the later full successful run, not on partial checks. No merge to `main`, Pages deployment, or live Supabase change occurred.
+
+### Phase 1 — Complete the learner experience: NEXT
+
+Proceed with the approved Phase 1 exit criteria. First priority is to review the current onboarding and subject-selection save/hydration flow, then design the additive `learner_subjects` persistence and account-isolation strategy. Preserve the legacy `profiles.primary_subject` contract. Prepare migration and RLS tests for a disposable/staging database; do not apply them to the connected live Supabase project without explicit approval. Ensure save success is only shown after confirmed persistence, and preserve guest-to-account and existing-account behaviour.
+
+**Phase completion notification:** Phase 0 is now recorded as complete on this development branch. This is not production release approval.
