@@ -1,4 +1,5 @@
 name: Verify shared UI adoption
+# Lockfile is synchronized; npm ci is now the required reproducible install.
 
 on:
   pull_request:
