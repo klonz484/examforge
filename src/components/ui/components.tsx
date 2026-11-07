@@ -32,15 +32,19 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(funct
 });
 
 export interface CheckFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "id"> { label: string; description?: string; className?: string; }
-export const CheckboxField = forwardRef<HTMLInputElement, CheckFieldProps>(function CheckboxField({ label, description, className = "", ...props }, ref) {
+export const CheckboxField = forwardRef<HTMLInputElement, CheckFieldProps>(function CheckboxField({ label, description, className = "", "aria-describedby": describedBy, ...props }, ref) {
   const id = useId();
-  return <div className={["ui-choice", className].filter(Boolean).join(" ")}><input {...props} ref={ref} id={id} type="checkbox" className="ui-choice__input" /><div><label className="ui-choice__label" htmlFor={id}>{label}</label>{description ? <p className="ui-hint">{description}</p> : null}</div></div>;
+  const descriptionId = id + "-description";
+  const ariaDescribedBy = [description ? descriptionId : null, describedBy].filter(Boolean).join(" ") || undefined;
+  return <div className={["ui-choice", className].filter(Boolean).join(" ")}><input {...props} ref={ref} id={id} type="checkbox" className="ui-choice__input" aria-describedby={ariaDescribedBy} /><div><label className="ui-choice__label" htmlFor={id}>{label}</label>{description ? <p className="ui-hint" id={descriptionId}>{description}</p> : null}</div></div>;
 });
 
 export interface SwitchFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "role" | "id"> { label: string; description?: string; className?: string; }
-export const SwitchField = forwardRef<HTMLInputElement, SwitchFieldProps>(function SwitchField({ label, description, className = "", ...props }, ref) {
+export const SwitchField = forwardRef<HTMLInputElement, SwitchFieldProps>(function SwitchField({ label, description, className = "", "aria-describedby": describedBy, ...props }, ref) {
   const id = useId();
-  return <div className={["ui-choice", className].filter(Boolean).join(" ")}><input {...props} ref={ref} id={id} type="checkbox" role="switch" className="ui-switch" /><div><label className="ui-choice__label" htmlFor={id}>{label}</label>{description ? <p className="ui-hint">{description}</p> : null}</div></div>;
+  const descriptionId = id + "-description";
+  const ariaDescribedBy = [description ? descriptionId : null, describedBy].filter(Boolean).join(" ") || undefined;
+  return <div className={["ui-choice", className].filter(Boolean).join(" ")}><input {...props} ref={ref} id={id} type="checkbox" role="switch" className="ui-switch" aria-describedby={ariaDescribedBy} /><div><label className="ui-choice__label" htmlFor={id}>{label}</label>{description ? <p className="ui-hint" id={descriptionId}>{description}</p> : null}</div></div>;
 });
 
 export interface RadioOption { value: string; label: string; description?: string; disabled?: boolean; }
