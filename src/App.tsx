@@ -106,7 +106,9 @@ function App() {
   const menuButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
+    // Keep the application and shared UI theme attributes in sync.
     document.documentElement.dataset.theme = theme
+    document.documentElement.dataset.uiTheme = theme
     save('ef:theme', theme)
   }, [theme])
 
