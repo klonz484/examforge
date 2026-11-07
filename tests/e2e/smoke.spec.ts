@@ -48,7 +48,8 @@ test('student can complete onboarding and reopen saved study settings', async ({
 
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Grade 11' }).click()
-  await page.getByRole('button', { name: /Mathematics/ }).click()
+  await page.locator('.catalogue-option').filter({ hasText: 'Mathematics' }).first().click()
+  await page.getByLabel('Choose your first study focus').selectOption('mathematics')
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
   await page.getByRole('button', { name: 'Functions', exact: true }).click()
 
@@ -65,7 +66,7 @@ test('student can complete onboarding and reopen saved study settings', async ({
   await expect(page.getByRole('heading', { name: /Set up your exam focus/ })).toBeVisible()
   await expect(page.locator('input[type="date"]')).toHaveValue(dateValue)
   await expect(page.getByRole('button', { name: 'Grade 11' })).toHaveClass(/chosen/)
-  await expect(page.getByRole('button', { name: /Mathematics/ })).toHaveClass(/chosen/)
+  await expect(page.locator('.catalogue-option.chosen').filter({ hasText: 'Mathematics' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Algebra', exact: true })).toHaveClass(/selected/)
   await expect(page.getByRole('button', { name: 'Functions', exact: true })).toHaveClass(/selected/)
 })
@@ -92,7 +93,7 @@ test('legacy shared browser data never changes the signed-out default setup', as
 
   await expect(page.locator('input[type="date"]')).toHaveValue(dateValue)
   await expect(page.getByRole('button', { name: 'Grade 12' })).toHaveClass(/chosen/)
-  await expect(page.getByRole('button', { name: /Physical Science/ })).toHaveClass(/chosen/)
+  await expect(page.locator('.catalogue-option.chosen').filter({ hasText: 'Physical Sciences' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Mechanics', exact: true })).not.toHaveClass(/selected/)
   await expect(page.getByRole('button', { name: 'Electricity', exact: true })).not.toHaveClass(/selected/)
 })
