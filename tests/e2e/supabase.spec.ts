@@ -31,13 +31,16 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/examforge/')
 
-  const examDate = new Date()
-  examDate.setDate(examDate.getDate() + 45)
-  const dateValue = [
-    examDate.getFullYear(),
-    String(examDate.getMonth() + 1).padStart(2, '0'),
-    String(examDate.getDate()).padStart(2, '0'),
-  ].join('-')
+  // Calculate in the browser's timezone, matching the app's local-date behavior.
+  const dateValue = await page.evaluate(() => {
+    const examDate = new Date()
+    examDate.setDate(examDate.getDate() + 45)
+    return [
+      examDate.getFullYear(),
+      String(examDate.getMonth() + 1).padStart(2, '0'),
+      String(examDate.getDate()).padStart(2, '0'),
+    ].join('-')
+  })
 
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Grade 12' }).click()
