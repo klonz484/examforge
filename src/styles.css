@@ -36,3 +36,5 @@
 .all-subject-row small{font-size:9px;color:#9ca6b2;line-height:1.35}
 .all-subject-row button{flex-shrink:0;border:1px solid #75401f;background:#28170f;color:#ff9a4f;border-radius:8px;padding:7px 10px;font-size:10px}
 @media(max-width:390px){.catalogue-grid{grid-template-columns:1fr}.dashboard-subject-grid{gap:6px}.dashboard-subject-slot{padding:9px;min-height:95px}}
+
+.content-notice{margin:12px 0;padding:12px;border:1px solid #3b4653;border-radius:10px;background:#111720;color:#aeb8c4;font-size:11px;line-height:1.5}
