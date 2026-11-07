@@ -39,5 +39,5 @@ test("ExamForge consumes shared navigation and modal form components", async ({ 
   expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBeTruthy();
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
-  await expect(page.getByRole("button", { name: /Account \/ sign in/ })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
 });
