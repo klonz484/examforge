@@ -203,6 +203,7 @@ function App() {
     const result = authMode === 'up' ? await supabase.auth.signUp({ email: userEmail, password }) : await supabase.auth.signInWithPassword({ email: userEmail, password })
     if (result.error) { setToast(result.error.message); return }
     // Only seed a new account. Existing accounts retain their saved profile and subjects.
+    let limitedSubjectSync = false
     if (result.data.user && result.data.session) {
       let shouldSeed = authMode === 'up'
       if (authMode === 'in') {
@@ -240,7 +241,7 @@ function App() {
             setAuthOpen(false); setPassword('')
             return
           }
-          setToast('Signed in. Your main subject is saved; full multi-subject sync will activate after the learner-library database update.')
+          limitedSubjectSync = true
         }
         const firstProfile: Profile = { ...seedProfile, subject: legacySubject }
         save(userStorageKey(result.data.user.id, 'profile'), firstProfile)
@@ -250,7 +251,7 @@ function App() {
       }
     }
     setAuthOpen(false); setPassword('')
-    setToast(authMode === 'up' ? 'Check your email to confirm your account.' : 'You are signed in.')
+    setToast(authMode === 'up' ? 'Check your email to confirm your account.' : limitedSubjectSync ? 'Signed in. Main subject saved; full multi-subject sync activates after the learner-library database update.' : 'You are signed in.')
   }
   async function signOut() { setMenuOpen(false); await supabase?.auth.signOut(); setToast('Signed out.') }
 
