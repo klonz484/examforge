@@ -59,6 +59,19 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page.getByText('You are signed in.')).toBeVisible()
 
+  // Test an existing account too: explicitly save the edited focus instead of assuming
+  // a previously-used test account has no profile row.
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('button', { name: /Study settings/ }).click()
+  await page.locator('input[type="date"]').fill(dateValue)
+  await page.getByRole('button', { name: /Mathematics/ }).click()
+  await page.getByRole('button', { name: /Physical Science/ }).click()
+  await page.getByRole('button', { name: 'Grade 12' }).click()
+  await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
+  await page.getByRole('button', { name: 'Electricity', exact: true }).click()
+  await page.getByRole('button', { name: /Start Forging/ }).click()
+  await expect(page.getByText('Your study focus is set. Rewind first.')).toBeVisible()
+
   const accountA = client()
   const signInA = await accountA.auth.signInWithPassword({ email: emailA!, password: passwordA! })
   expect(signInA.error).toBeNull()
