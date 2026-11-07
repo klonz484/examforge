@@ -38,3 +38,26 @@
 @media(max-width:390px){.catalogue-grid{grid-template-columns:1fr}.dashboard-subject-grid{gap:6px}.dashboard-subject-slot{padding:9px;min-height:95px}}
 
 .content-notice{margin:12px 0;padding:12px;border:1px solid #3b4653;border-radius:10px;background:#111720;color:#aeb8c4;font-size:11px;line-height:1.5}
+
+
+/* User-selectable light theme; dark remains the default. */
+:root[data-theme="light"]{color-scheme:light;color:#1c2735;background:#f4f6fa;--bg:#f4f6fa;--panel:#fff;--panel2:#edf1f6;--line:#d8dee8;--muted:#586577;--orange:#d95c08;--orange2:#c94f00;--purple:#7544c8;--green:#168344;--blue:#1769b5}
+:root[data-theme="light"] body{color:#1c2735;background:radial-gradient(ellipse at 50% -20%,#e5ebf4 0%,#f4f6fa 58%)}
+:root[data-theme="light"] .topbar{background:#f4f6faee;border-color:#d8dee8}
+:root[data-theme="light"] .icon-btn,:root[data-theme="light"] .round-arrow{color:#273548;background:#fff;border-color:#cbd4e0}
+:root[data-theme="light"] .panel,:root[data-theme="light"] .onboarding,:root[data-theme="light"] .stat-strip,:root[data-theme="light"] .dashboard-subject-slot,:root[data-theme="light"] .paper-card,:root[data-theme="light"] .progress-summary,:root[data-theme="light"] .progress-panel,:root[data-theme="light"] .menu-pop,:root[data-theme="light"] .upload-zone,:root[data-theme="light"] .task-card{background:#fff;color:#1c2735;border-color:#d8dee8}
+:root[data-theme="light"] .tonight-card{background:linear-gradient(145deg,#fff7ef,#fff);color:#1c2735;border-color:#efc9a9}
+:root[data-theme="light"] .countdown{background:#fff1e5;border-color:#edc5a4}
+:root[data-theme="light"] .muted,:root[data-theme="light"] .hint,:root[data-theme="light"] .eyebrow,:root[data-theme="light"] .brand small{color:#586577}
+:root[data-theme="light"] input,:root[data-theme="light"] select,:root[data-theme="light"] textarea{background:#fff;color:#1c2735;border-color:#cbd4e0}
+:root[data-theme="light"] .catalogue-option,:root[data-theme="light"] .selected-subject-chip,:root[data-theme="light"] .all-subject-row{background:#f3f6fa;color:#1c2735;border-color:#d8dee8}
+:root[data-theme="light"] .menu-pop button,:root[data-theme="light"] .all-subject-row button{color:#1c2735}
+:root[data-theme="light"] .empty-state,:root[data-theme="light"] .activity-empty{color:#586577}
+:root[data-theme="light"] .bottom-nav{background:#ffffffed;border-color:#d8dee8}
+:root[data-theme="light"] .bottom-nav button{color:#586577}
+:root[data-theme="light"] .bottom-nav button.active{color:#c94f00}
+:root[data-theme="light"] .tag,:root[data-theme="light"] .filter{background:#edf1f6;color:#344256;border-color:#d8dee8}
+:root[data-theme="light"] .filter.active{background:#ffeadb;color:#9b3d00;border-color:#edbd9a}
+:root[data-theme="light"] .content-notice{background:#fff7e8;color:#76501b;border-color:#ead3a7}
+:root[data-theme="light"] .privacy{color:#586577}
+:root[data-theme="light"] button:focus-visible,:root[data-theme="light"] a:focus-visible,:root[data-theme="light"] input:focus-visible,:root[data-theme="light"] select:focus-visible{outline:3px solid #1769b5;outline-offset:2px}
