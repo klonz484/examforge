@@ -14,7 +14,7 @@ test("ExamForge consumes shared navigation and modal form components", async ({ 
   date.setDate(date.getDate() + 30);
   const dateValue = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
   await page.locator('input[type="date"]').fill(dateValue);
-  await page.getByRole("button", { name: /Mathematics/ }).click();
+  await page.getByRole("button", { name: "Mathematics ATP-listed", exact: true }).click();
   await page.getByRole("button", { name: "Algebra", exact: true }).click();
   await page.getByRole("button", { name: "Functions", exact: true }).click();
   await page.getByRole("button", { name: /Start Forging/ }).click();
