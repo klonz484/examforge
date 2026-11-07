@@ -156,19 +156,28 @@ function App() {
         .select('grade,exam_date,primary_subject,weak_topics').eq('id', userId).maybeSingle()
       if (!active) return
       if (profileError) { console.error('Profile load failed:', profileError.message); return }
+      const { data: subjectRows, error: subjectsError } = await client.from('learner_subjects')
+        .select('subject_id').eq('user_id', userId).order('created_at', { ascending: true })
+      if (!active) return
+      if (subjectsError) {
+        console.error('Subject library load failed:', subjectsError.message)
+        setToast('Could not load your saved subjects. Please refresh and try again.')
+        return
+      }
+      const remoteSubjectIds = (subjectRows ?? []).map(row => row.subject_id as string)
       if (profile) {
         const p: Profile = { grade: String(profile.grade ?? '12'), examDate: profile.exam_date ?? dateAfterDays(20), subject: profile.primary_subject ?? 'Physical Science', weak: profile.weak_topics ?? [] }
         setGrade(p.grade); setExamDate(p.examDate); setSubject(p.subject); setWeak(p.weak)
-        const savedSubjects = load<string[]>(userStorageKey(userId, 'subjects'), [])
-        setSelectedSubjectIds(savedSubjects.length ? savedSubjects : [p.subject === 'Mathematics' ? 'mathematics' : 'physical-science'])
+        const ids = remoteSubjectIds.length ? remoteSubjectIds : [p.subject === 'Mathematics' ? 'mathematics' : 'physical-science']
+        setSelectedSubjectIds(ids)
+        save(userStorageKey(userId, 'subjects'), ids)
         setOnboarded(true); setShowOnboarding(false)
         save(userStorageKey(userId, 'profile'), p)
       } else {
         const localProfile = load<Profile | null>(userStorageKey(userId, 'profile'), null)
         if (localProfile) {
           setGrade(localProfile.grade); setExamDate(localProfile.examDate); setSubject(localProfile.subject); setWeak(localProfile.weak)
-          const savedSubjects = load<string[]>(userStorageKey(userId, 'subjects'), [])
-          setSelectedSubjectIds(savedSubjects.length ? savedSubjects : [localProfile.subject === 'Mathematics' ? 'mathematics' : 'physical-science'])
+          setSelectedSubjectIds(remoteSubjectIds.length ? remoteSubjectIds : [localProfile.subject === 'Mathematics' ? 'mathematics' : 'physical-science'])
           setOnboarded(true); setShowOnboarding(false)
         }
       }
@@ -285,13 +294,27 @@ function App() {
     if (!selectedSubjectIds.length) { setToast('Select at least one subject to continue.'); return }
     const legacySubject = selectedSubjectIds.includes('mathematics') ? 'Mathematics' : 'Physical Science'
     const p: Profile = { grade, examDate, subject: legacySubject, weak }
-    if (user) { save(userStorageKey(user.id, 'profile'), p); save(userStorageKey(user.id, 'subjects'), selectedSubjectIds) }
-    setOnboarded(true); setShowOnboarding(false)
-    if (supabase && user) {
-      const { error } = await supabase.from('profiles').upsert({ id: user.id, grade: Number(grade), exam_date: examDate, primary_subject: legacySubject, weak_topics: weak })
-      if (error) { console.error('Profile sync failed:', error.message); setToast('Could not sync your study focus. Please try again.'); return }
+    if (user && supabase) {
+      const { error } = await supabase.rpc('save_learner_onboarding', {
+        p_grade: Number(grade), p_exam_date: examDate || null,
+        p_primary_subject: legacySubject, p_weak_topics: weak,
+        p_subject_ids: selectedSubjectIds,
+      })
+      if (error) {
+        console.error('Onboarding persistence failed:', error.message)
+        setToast(error.message.includes('save_learner_onboarding') || error.code === 'PGRST202'
+          ? 'Your account database needs the learner-subject update before this can be saved. Your choices are still here; try again after the update.'
+          : 'Could not save your study focus. Your choices are still here; please try again.')
+        return
+      }
+      save(userStorageKey(user.id, 'profile'), p)
+      save(userStorageKey(user.id, 'subjects'), selectedSubjectIds)
+    } else {
+      save(userStorageKey(null, 'profile'), p)
+      save(userStorageKey(null, 'subjects'), selectedSubjectIds)
     }
-    setToast('Your study focus is set. Rewind first.')
+    setOnboarded(true); setShowOnboarding(false)
+    setToast('Your study focus is saved. Rewind first.')
   }
 
   if (showOnboarding) return <div className="onboard-wrap"><div className="brand"><span className="brand-mark"><Flame size={29} fill="currentColor"/></span><span>Exam<span>Forge</span></span></div><div className="onboard-hero"><p className="eyebrow">STUDY. PRACTICE. EXCEL.</p><h1>Set up your<br/><em>exam focus</em></h1><p className="muted">We’ll tailor your practice to what matters most.</p></div><section className="panel onboarding"><label className="field-label" htmlFor="exam-date"><CalendarDays size={18}/> Exam date</label><input id="exam-date" type="date" min={today} value={examDate} onChange={e=>setExamDate(e.target.value)}/><label className="field-label"><UserRound size={18}/> Your grade</label><div className="choice-row">{['10','11','12'].map(g=><button key={g} className={`choice ${grade===g?'chosen':''}`} onClick={()=>setGrade(g)}>Grade {g}</button>)}</div><label className="field-label"><Settings2 size={18}/> Choose your subjects</label><p className="hint">Select as many CAPS subjects as you want. There is no ExamForge selection limit. You can change your choices later.</p><div className="selected-subjects" aria-live="polite"><b>{selectedSubjectIds.length} selected</b>{enrolledSubjects.map(item=><button type="button" className="selected-subject-chip" key={item.id} onClick={()=>toggleEnrolledSubject(item)} aria-label={`Remove ${item.name}`}>{item.name}<X size={13}/></button>)}</div><label className="catalogue-search"><Search size={17}/><input value={catalogueSearch} onChange={e=>setCatalogueSearch(e.target.value)} placeholder="Search the CAPS subject library" aria-label="Search CAPS subjects"/></label><div className="catalogue-grid">{catalogueResults.map(item=><button type="button" key={item.id} className={`catalogue-option ${selectedSubjectIds.includes(item.id)?'chosen':''}`} onClick={()=>toggleEnrolledSubject(item)} aria-pressed={selectedSubjectIds.includes(item.id)}><span>{item.name}</span><small>{item.status==='caps-index-only'?'CAPS index · ATP availability unverified':item.status==='specialist-atp'?'Specialist ATP offering':'ATP-listed'}</small></button>)}</div><label className="daily-subject-picker">First study focus<select aria-label="Choose your first study focus" value={activeSubjectId} onChange={e=>setDailySubject(e.target.value)}>{enrolledSubjects.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{hasStarterQuestionBank?<><label className="field-label"><Target size={18}/> Your weakest topics</label><div className="topic-pills">{topics.map(t=><button key={t} onClick={()=>toggleTopic(t)} className={`pill ${weak.includes(t)?'selected':''}`}>{t}</button>)}</div><p className="hint">Choose at least 2 topics. You can change this anytime.</p></>:<p className="content-notice">Topic targeting and question practice will appear here as this subject’s verified learning content is built.</p>}<Button variant="primary" className="primary full" disabled={(hasStarterQuestionBank && weak.length<2) || !examDate || !selectedSubjectIds.length} onClick={saveOnboarding}>Start Forging <ChevronRight size={20}/></Button><p className="privacy"><LockKeyhole size={14}/> Your data stays private. Focus built for you.</p></section></div>
