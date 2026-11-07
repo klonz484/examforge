@@ -64,8 +64,8 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /Study settings/ }).click()
   await page.locator('input[type="date"]').fill(dateValue)
-  await page.getByRole('button', { name: /Mathematics/ }).click()
-  await page.getByRole('button', { name: /Physical Science/ }).click()
+  await page.getByRole('button', { name: 'Mathematics ATP-listed', exact: true }).click()
+  // Keep the default Physical Sciences subject enrolled.
   await page.getByRole('button', { name: 'Grade 12' }).click()
   await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
   await page.getByRole('button', { name: 'Electricity', exact: true }).click()
