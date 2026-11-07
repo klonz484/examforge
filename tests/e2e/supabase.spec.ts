@@ -16,7 +16,7 @@ function client() {
 }
 
 test('Supabase sign-in, full onboarding profile persistence, and profile RLS isolation', async ({ page }) => {
-  test.skip(process.env.RUN_LIVE_SUPABASE_E2E !== 'true', 'Live Supabase E2E is opt-in and must target a disposable staging project.');
+  test.skip(process.env.RUN_LIVE_SUPABASE_E2E !== 'true' || process.env.SUPABASE_IS_DISPOSABLE_STAGING !== 'true', 'Requires an explicitly designated disposable Supabase staging project with the current migrations applied; never run against production.');
   expect(url).toBeTruthy()
   expect(anonKey).toBeTruthy()
   expect(emailA).toBeTruthy()
