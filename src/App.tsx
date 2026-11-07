@@ -283,7 +283,6 @@ function App() {
   }
   async function saveOnboarding() {
     if (!selectedSubjectIds.length) { setToast('Select at least one subject to continue.'); return }
-    const primarySubject = CAPS_SUBJECTS.find(item => item.id === selectedSubjectIds[0])
     const legacySubject = selectedSubjectIds.includes('mathematics') ? 'Mathematics' : 'Physical Science'
     const p: Profile = { grade, examDate, subject: legacySubject, weak }
     if (user) { save(userStorageKey(user.id, 'profile'), p); save(userStorageKey(user.id, 'subjects'), selectedSubjectIds) }
