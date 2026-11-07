@@ -30,8 +30,9 @@ test('learner can enrol in more than seven subjects and use the full library', a
 
 test('dashboard keeps seven fixed positions even when fewer subjects are enrolled', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear() })
   await page.goto('/examforge/')
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+  await page.reload()
   await page.locator('input[type="date"]').fill(new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10))
   await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
   await page.getByRole('button', { name: 'Electricity', exact: true }).click()
