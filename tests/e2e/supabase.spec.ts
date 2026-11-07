@@ -70,7 +70,8 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   if (await mathematicsOption.getAttribute('aria-pressed') !== 'true') await mathematicsOption.click()
   // Select Mathematics as the first study focus before choosing its topics.
   await page.getByLabel('Choose your first study focus').selectOption('mathematics')
-  for (const selectedTopic of await page.locator('.topic-pills .pill.selected').all()) await selectedTopic.click()
+  const selectedTopics = page.locator('.topic-pills .pill.selected')
+  while (await selectedTopics.count()) await selectedTopics.first().click()
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
   await page.getByRole('button', { name: 'Functions', exact: true }).click()
   await page.getByRole('button', { name: /Start Forging/ }).click()
