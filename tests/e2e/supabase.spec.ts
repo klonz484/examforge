@@ -75,7 +75,7 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
   await page.getByRole('button', { name: 'Functions', exact: true }).click()
   await page.getByRole('button', { name: /Start Forging/ }).click()
-  await expect(page.getByText('Your study focus is set. Rewind first.')).toBeVisible()
+  await expect(page.getByText('Your study focus is saved. Rewind first.')).toBeVisible()
 
   const accountA = client()
   const signInA = await accountA.auth.signInWithPassword({ email: emailA!, password: passwordA! })
@@ -112,6 +112,11 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
     weak_topics: ['Algebra', 'Functions'],
   })
 
+  const ownSubjects = await accountA.from('learner_subjects')
+    .select('subject_id').eq('user_id', userA!.id).order('subject_id')
+  expect(ownSubjects.error).toBeNull()
+  expect(ownSubjects.data?.map(row => row.subject_id)).toEqual(['mathematics', 'physical-science'])
+
   // A second account must not be able to read or overwrite the first student's profile.
   const accountB = client()
   const signInB = await accountB.auth.signInWithPassword({ email: emailB!, password: passwordB! })
@@ -123,6 +128,16 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
     .eq('id', userA!.id)
   expect(crossAccountRead.error).toBeNull()
   expect(crossAccountRead.data).toEqual([])
+
+  const crossSubjectRead = await accountB.from('learner_subjects')
+    .select('user_id,subject_id').eq('user_id', userA!.id)
+  expect(crossSubjectRead.error).toBeNull()
+  expect(crossSubjectRead.data).toEqual([])
+
+  const forgedSubjectInsert = await accountB.from('learner_subjects').insert({
+    user_id: userA!.id, subject_id: 'forged-subject',
+  })
+  expect(forgedSubjectInsert.error).not.toBeNull()
 
   const forgedInsert = await accountB.from('profiles').insert({
     id: userA!.id,
