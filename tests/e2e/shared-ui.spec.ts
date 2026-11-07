@@ -1,3 +1,4 @@
+// Consumer-level regression coverage for the shared UI snapshot.
 import { test, expect } from "@playwright/test";
 
 test("ExamForge consumes shared navigation and modal form components", async ({ page }) => {
