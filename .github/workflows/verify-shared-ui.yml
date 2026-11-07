@@ -30,7 +30,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # The existing repository lockfile predates its declared Playwright dependency; npm install reconciles it for this CI run.
+      - run: npm install
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Verify UI consumer journeys
