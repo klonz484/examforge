@@ -75,3 +75,19 @@ A previous old-branch run passed 13 of 14 tests; the remaining test failure was 
 ## 6. Production protection
 
 This audit and workflow change only the feature branch. No production database migration, merge to `main`, or deployment is authorised by this work. Those remain separate release decisions requiring successful checks and explicit approval.
+
+
+## 7. Selective catalogue port — 7 November 2026
+
+The first isolated product-code port is now committed on this branch:
+
+- `src/data/capsSubjects.ts` now carries the richer catalogue metadata from the reviewed earlier branch: `atp-listed`, `specialist-atp`, `caps-index-only`, and `pathway-parent`.
+- Grade filtering returns only offerings with a grade-specific ATP listing; CAPS-index-only entries remain searchable without falsely claiming grade availability.
+- Language level and specialist SASL offerings are represented explicitly.
+- Technical Technology and Music umbrella subjects are separated from their child pathways.
+- Legacy Mathematics and Physical Science IDs/names remain available for compatibility.
+- Added `tests/e2e/capsSubjects.spec.ts` to cover unique/stable IDs, grade filtering, index-only discoverability, specialist language metadata, pathway grouping, category grouping, and search aliases.
+
+This is catalogue metadata and test coverage only. It does not yet wire the catalogue into onboarding or the dashboard, and it does not create learner-subject database records.
+
+Verification run for this port: [42390251372](https://github.com/klonz484/examforge/actions/runs/42390251372). The workflow was still running at the time this note was added; its result must be checked before treating the catalogue port as verified.
