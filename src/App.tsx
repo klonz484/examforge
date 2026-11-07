@@ -223,9 +223,24 @@ function App() {
           p_subject_ids: seedSubjects,
         })
         if (seedError) {
-          console.error('Initial onboarding save failed:', seedError.message)
-          setToast('Account created, but your study setup could not be saved yet. Please finish setup again after the database update.')
-          return
+          const migrationMissing = seedError.code === 'PGRST202' || seedError.message.includes('save_learner_onboarding')
+          if (!migrationMissing) {
+            console.error('Initial onboarding save failed:', seedError.message)
+            setToast('Account created, but your study setup could not be saved. Please retry.')
+            return
+          }
+          const { error: legacySaveError } = await supabase.from('profiles').upsert({
+            id: result.data.user.id, grade: Number(seedProfile.grade),
+            exam_date: seedProfile.examDate || null, primary_subject: legacySubject,
+            weak_topics: seedProfile.weak,
+          })
+          if (legacySaveError) {
+            console.error('Legacy profile save failed:', legacySaveError.message)
+            setToast('Account created and signed in, but the study profile could not be saved. Please retry in Study settings.')
+            setAuthOpen(false); setPassword('')
+            return
+          }
+          setToast('Signed in. Your main subject is saved; full multi-subject sync will activate after the learner-library database update.')
         }
         const firstProfile: Profile = { ...seedProfile, subject: legacySubject }
         save(userStorageKey(result.data.user.id, 'profile'), firstProfile)
@@ -325,10 +340,25 @@ function App() {
         p_subject_ids: selectedSubjectIds,
       })
       if (error) {
-        console.error('Onboarding persistence failed:', error.message)
-        setToast(error.message.includes('save_learner_onboarding') || error.code === 'PGRST202'
-          ? 'Your account database needs the learner-subject update before this can be saved. Your choices are still here; try again after the update.'
-          : 'Could not save your study focus. Your choices are still here; please try again.')
+        const migrationMissing = error.code === 'PGRST202' || error.message.includes('save_learner_onboarding')
+        if (!migrationMissing) {
+          console.error('Onboarding persistence failed:', error.message)
+          setToast('Could not save your study focus. Your choices are still here; please try again.')
+          return
+        }
+        const { error: legacyError } = await supabase.from('profiles').upsert({
+          id: user.id, grade: Number(grade), exam_date: examDate || null,
+          primary_subject: legacySubject, weak_topics: weak,
+        })
+        if (legacyError) {
+          console.error('Legacy profile persistence failed:', legacyError.message)
+          setToast('Could not save your study focus. Your choices are still here; please try again.')
+          return
+        }
+        save(userStorageKey(user.id, 'profile'), p)
+        save(userStorageKey(user.id, 'subjects'), selectedSubjectIds)
+        setOnboarded(true); setShowOnboarding(false)
+        setToast('Main subject saved to your account. Multi-subject sync will activate after the learner-library database update.')
         return
       }
       save(userStorageKey(user.id, 'profile'), p)
