@@ -1,10 +1,14 @@
 // Consumer-level regression coverage for the shared UI snapshot.
 import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 test("ExamForge consumes shared navigation and modal form components", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.goto("/examforge/");
+
+  const onboardingA11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  expect(onboardingA11y.violations, JSON.stringify(onboardingA11y.violations, null, 2)).toEqual([]);
 
   const date = new Date();
   date.setDate(date.getDate() + 30);
@@ -29,6 +33,11 @@ test("ExamForge consumes shared navigation and modal form components", async ({ 
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("textbox", { name: "Email address" })).toBeVisible();
   await expect(dialog.getByLabel("Password")).toHaveAttribute("autocomplete", "new-password");
+  const dialogA11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  expect(dialogA11y.violations, JSON.stringify(dialogA11y.violations, null, 2)).toEqual([]);
+  await page.keyboard.press("Tab");
+  expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBeTruthy();
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole("button", { name: /Account \/ sign in/ })).toBeFocused();
 });
