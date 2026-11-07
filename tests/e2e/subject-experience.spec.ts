@@ -20,7 +20,7 @@ test('learner can enrol in more than seven subjects and use the full library', a
   await expect(page.locator('.dashboard-subject-slot.filled')).toHaveCount(7)
   await page.getByRole('button', { name: /All subjects/ }).click()
   await expect(page.locator('.all-subjects-panel')).toBeVisible()
-  await expect(page.locator('.all-subject-row')).toHaveCountGreaterThan(30)
+  expect(await page.locator('.all-subject-row').count()).toBeGreaterThan(30)
 
   await page.getByLabel("Choose today's study subject").selectOption('accounting')
   await page.getByRole('button', { name: 'Start 7-minute Rewind' }).click()
