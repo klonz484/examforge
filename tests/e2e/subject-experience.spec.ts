@@ -11,6 +11,7 @@ test('learner can enrol in more than seven subjects and use the full library', a
     await page.locator('.catalogue-option').filter({ hasText: name }).first().click()
   }
   await expect(page.locator('.selected-subject-chip')).toHaveCount(8)
+  await search.fill('')
   await page.getByLabel('Choose your first study focus').selectOption('mathematics')
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
   await page.getByRole('button', { name: 'Functions', exact: true }).click()
