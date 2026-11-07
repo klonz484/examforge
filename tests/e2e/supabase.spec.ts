@@ -65,10 +65,10 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.getByRole('button', { name: /Study settings/ }).click()
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Mathematics ATP-listed', exact: true }).click()
-  // Keep the default Physical Sciences subject enrolled.
-  await page.getByRole('button', { name: 'Grade 12' }).click()
-  await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
-  await page.getByRole('button', { name: 'Electricity', exact: true }).click()
+  // Select Mathematics as the first study focus before choosing its topics.
+  await page.getByLabel('Choose your first study focus').selectOption('mathematics')
+  await page.getByRole('button', { name: 'Algebra', exact: true }).click()
+  await page.getByRole('button', { name: 'Functions', exact: true }).click()
   await page.getByRole('button', { name: /Start Forging/ }).click()
   await expect(page.getByText('Your study focus is set. Rewind first.')).toBeVisible()
 
@@ -90,8 +90,8 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
     id: userA!.id,
     grade: 12,
     exam_date: dateValue,
-    primary_subject: 'Physical Science',
-    weak_topics: ['Mechanics', 'Electricity'],
+    primary_subject: 'Mathematics',
+    weak_topics: ['Algebra', 'Functions'],
   })
 
   const ownProfile = await accountA.from('profiles')
