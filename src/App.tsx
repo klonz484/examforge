@@ -194,20 +194,28 @@ function App() {
     if (password.length < 8) { setToast('Password must be at least 8 characters.'); return }
     const result = authMode === 'up' ? await supabase.auth.signUp({ email: userEmail, password }) : await supabase.auth.signInWithPassword({ email: userEmail, password })
     if (result.error) { setToast(result.error.message); return }
-    // A first-time account may adopt the current guest setup once; existing accounts are never overwritten.
-    if (authMode === 'in' && result.data.user) {
-      const { data: existing } = await supabase.from('profiles').select('id').eq('id', result.data.user.id).maybeSingle()
-      if (!existing) {
-        const { error: seedError } = await supabase.from('profiles').upsert({
-          id: result.data.user.id, grade: Number(grade), exam_date: examDate,
-          primary_subject: subject, weak_topics: weak,
+    // Only seed a new account. Existing accounts retain their saved profile and subjects.
+    if (result.data.user && result.data.session) {
+      let shouldSeed = authMode === 'up'
+      if (authMode === 'in') {
+        const { data: existing } = await supabase.from('profiles').select('id').eq('id', result.data.user.id).maybeSingle()
+        shouldSeed = !existing
+      }
+      if (shouldSeed) {
+        const legacySubject = selectedSubjectIds.includes('mathematics') ? 'Mathematics' : 'Physical Science'
+        const { error: seedError } = await supabase.rpc('save_learner_onboarding', {
+          p_grade: Number(grade), p_exam_date: examDate || null,
+          p_primary_subject: legacySubject, p_weak_topics: weak,
+          p_subject_ids: selectedSubjectIds,
         })
-        if (seedError) console.error('Initial profile save failed:', seedError.message)
-        else {
-          const firstProfile: Profile = { grade, examDate, subject, weak }
-          save(userStorageKey(result.data.user.id, 'profile'), firstProfile)
-          setOnboarded(true); setShowOnboarding(false)
+        if (seedError) {
+          console.error('Initial onboarding save failed:', seedError.message)
+          setToast('Account created, but your study setup could not be saved yet. Please finish setup again after the database update.')
+          return
         }
+        const firstProfile: Profile = { grade, examDate, subject: legacySubject, weak }
+        save(userStorageKey(result.data.user.id, 'profile'), firstProfile)
+        save(userStorageKey(result.data.user.id, 'subjects'), selectedSubjectIds)
       }
     }
     setAuthOpen(false); setPassword('')
