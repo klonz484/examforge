@@ -4,9 +4,9 @@ export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "dan
 export type ButtonSize = "sm" | "md" | "lg";
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> { variant?: ButtonVariant; size?: ButtonSize; loading?: boolean; }
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant = "primary", size = "md", loading = false, disabled, className = "", children, ...props }, ref) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant = "primary", size = "md", loading = false, disabled, type = "button", className = "", children, ...props }, ref) {
   const classes = ["ui-button", "ui-button--" + variant, "ui-button--" + size, className].filter(Boolean).join(" ");
-  return <button {...props} ref={ref} className={classes} disabled={disabled || loading} aria-busy={loading || undefined}>{loading ? <span className="ui-spinner" aria-hidden="true" /> : null}{children}</button>;
+  return <button {...props} ref={ref} type={type} className={classes} disabled={disabled || loading} aria-busy={loading || undefined}>{loading ? <span className="ui-spinner" aria-hidden="true" /> : null}{children}</button>;
 });
 
 export interface FieldProps { label: string; hint?: string; error?: string; id?: string; required?: boolean; className?: string; }
@@ -70,7 +70,7 @@ export function DataTable<T>({ caption, columns, rows, getRowKey, emptyMessage =
   return <div className="ui-table-wrap"><table className="ui-table"><caption>{caption}</caption><thead><tr>{columns.map((column) => <th key={column.key} scope="col" className={"ui-align--" + (column.align ?? "start")}>{column.header}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row) => <tr key={getRowKey(row)}>{columns.map((column) => <td key={column.key} className={"ui-align--" + (column.align ?? "start")}>{column.render(row)}</td>)}</tr>) : <tr><td colSpan={columns.length} className="ui-table__empty">{emptyMessage}</td></tr>}</tbody></table></div>;
 }
 
-export function Card({ children, className = "", ...props }: HTMLAttributes<HTMLElement>) { return <section {...props} className={["ui-card", className].filter(Boolean).join(" ")}>{children}</section>; }
+export function Card({ children, className = "", ...props }: HTMLAttributes<HTMLDivElement>) { return <div {...props} className={["ui-card", className].filter(Boolean).join(" ")}>{children}</div>; }
 export interface StatCardProps { label: string; value: ReactNode; detail?: ReactNode; trend?: ReactNode; }
 export function StatCard({ label, value, detail, trend }: StatCardProps) { return <Card className="ui-stat-card"><p className="ui-stat-card__label">{label}</p><p className="ui-stat-card__value">{value}</p>{detail ? <p className="ui-stat-card__detail">{detail}</p> : null}{trend ? <p className="ui-stat-card__trend">{trend}</p> : null}</Card>; }
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) { return <header className="ui-page-header"><div><h1>{title}</h1>{description ? <p>{description}</p> : null}</div>{actions ? <div className="ui-page-header__actions">{actions}</div> : null}</header>; }
