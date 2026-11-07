@@ -31,13 +31,16 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/examforge/')
 
-  const examDate = new Date()
-  examDate.setDate(examDate.getDate() + 45)
-  const dateValue = [
-    examDate.getFullYear(),
-    String(examDate.getMonth() + 1).padStart(2, '0'),
-    String(examDate.getDate()).padStart(2, '0'),
-  ].join('-')
+  // Calculate in the browser's timezone, matching the app's local-date behavior.
+  const dateValue = await page.evaluate(() => {
+    const examDate = new Date()
+    examDate.setDate(examDate.getDate() + 45)
+    return [
+      examDate.getFullYear(),
+      String(examDate.getMonth() + 1).padStart(2, '0'),
+      String(examDate.getDate()).padStart(2, '0'),
+    ].join('-')
+  })
 
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Grade 12' }).click()
@@ -55,6 +58,19 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.locator('input[type="password"]').fill(passwordA!)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page.getByText('You are signed in.')).toBeVisible()
+
+  // Test an existing account too: explicitly save the edited focus instead of assuming
+  // a previously-used test account has no profile row.
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('button', { name: /Study settings/ }).click()
+  await page.locator('input[type="date"]').fill(dateValue)
+  await page.getByRole('button', { name: /Mathematics/ }).click()
+  await page.getByRole('button', { name: /Physical Science/ }).click()
+  await page.getByRole('button', { name: 'Grade 12' }).click()
+  await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
+  await page.getByRole('button', { name: 'Electricity', exact: true }).click()
+  await page.getByRole('button', { name: /Start Forging/ }).click()
+  await expect(page.getByText('Your study focus is set. Rewind first.')).toBeVisible()
 
   const accountA = client()
   const signInA = await accountA.auth.signInWithPassword({ email: emailA!, password: passwordA! })

@@ -10,8 +10,12 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:4173',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    ...devices['Desktop Chrome'],
   },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', testIgnore: '**/supabase.spec.ts', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', testIgnore: '**/supabase.spec.ts', use: { ...devices['Desktop Safari'] } },
+  ],
   webServer: {
     // Build into a separate folder using the real GitHub Pages base path.
     // Never overwrite dist/, which contains the artifact that will be deployed.

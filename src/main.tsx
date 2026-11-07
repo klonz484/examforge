@@ -1,7 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import './components/ui/styles.css'
 import './styles.css'
+
+document.documentElement.dataset.uiTheme = 'dark'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
