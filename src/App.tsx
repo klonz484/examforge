@@ -165,11 +165,13 @@ function App() {
       const { data: subjectRows, error: subjectsError } = await client.from('learner_subjects')
         .select('subject_id').eq('user_id', userId).order('created_at', { ascending: true })
       if (!active) return
-      if (subjectsError) {
+      const subjectTableUnavailable = subjectsError?.code === '42P01' || subjectsError?.code === 'PGRST205'
+      if (subjectsError && !subjectTableUnavailable) {
         console.error('Subject library load failed:', subjectsError.message)
         setToast('Could not load your saved subjects. Please refresh and try again.')
         return
       }
+      if (subjectTableUnavailable) console.info('Learner subject migration is not installed yet; using the legacy profile subject until it is applied.')
       const remoteSubjectIds = (subjectRows ?? []).map(row => row.subject_id as string)
       if (profile) {
         const p: Profile = { grade: String(profile.grade ?? '12'), examDate: profile.exam_date ?? dateAfterDays(20), subject: profile.primary_subject ?? 'Physical Science', weak: profile.weak_topics ?? [] }
