@@ -3,7 +3,7 @@
 Source repository: klonz484/website-development-ecosystem.
 Source package: toolkit/ui-library.
 Source branch at adoption: feat/accessible-component-library.
-Source package version: 0.1.1-rc (accessibility hardening in review).
+Source package version: 0.1.0 (accessibility hardening in review).
 
 Exact upstream source revisions:
 - components.tsx: a36f3de6d9f33aed3bcb6e0ba0f4df767e79191f
