@@ -137,7 +137,7 @@ begin
   if (select count(*) from public.question_attempts where study_session_id = :'session_id'::uuid) <> 1 then
     raise exception 'Answer replay created a duplicate attempt';
   end if;
-  if not exists (select 1 from public.study_sessions where id = :'session_id'::uuid and status = 'in_progress' and duration_seconds = 38) then
+  if not exists (select 1 from public.study_sessions where user_id = auth.uid() and status = 'in_progress' and duration_seconds = 38) then
     raise exception 'Answer RPC did not persist the recoverable session snapshot';
   end if;
 end;
@@ -153,7 +153,7 @@ do $
 begin
   if not exists (
     select 1 from public.study_sessions
-    where id = :'session_id'::uuid and status = 'completed'
+    where user_id = auth.uid() and status = 'completed'
       and score = 1 and total_questions = 1 and completed_at is not null
   ) then
     raise exception 'Session completion summary was not persisted';
