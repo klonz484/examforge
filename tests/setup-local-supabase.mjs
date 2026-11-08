@@ -13,6 +13,7 @@ const admin = createClient(url, serviceRoleKey, {
 for (const [email, password] of [
   ['learner-a@examforge.local', 'ExamForgeLocalTest-A!2026'],
   ['learner-b@examforge.local', 'ExamForgeLocalTest-B!2026'],
+  ['learner-c@examforge.local', 'ExamForgeLocalTest-C!2026'],
 ]) {
   const { data, error } = await admin.auth.admin.createUser({
     email,
