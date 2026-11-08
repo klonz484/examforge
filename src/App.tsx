@@ -406,6 +406,18 @@ function App() {
     } else setToast('Session saved. You can resume it later.')
     setRecoverableSession(snapshot); setRewindOpen(false)
   }
+  async function abandonSession() {
+    if (user && supabase && activeSessionId) {
+      const { error } = await supabase.from('study_sessions').update({
+        status: 'abandoned', session_state: makeSessionSnapshot(), duration_seconds: seconds,
+        last_activity_at: new Date().toISOString(),
+      }).eq('id', activeSessionId).eq('status', 'in_progress')
+      if (error) { setToast('Could not abandon this session yet. Save and exit instead.'); return }
+    }
+    localStorage.removeItem(userStorageKey(user?.id ?? null, 'active-session'))
+    setRecoverableSession(null); setRewindOpen(false); setActiveSessionId(null); setSessionQs([])
+    setToast('Session abandoned. Answers already submitted remain in your study history.')
+  }
   function nextQuestion() {
     if (questionIndex >= sessionQs.length - 1) { void finishRewind(); return }
     setQuestionIndex(i => i + 1); setSelected(null)
@@ -529,7 +541,7 @@ function App() {
       {href:'#upload',label:<><Plus size={21}/><span>Upload</span></>,current:tab==='Upload Notes',onClick:e=>{e.preventDefault();setTab('Upload Notes')}},
       {href:'#progress',label:<><Activity size={21}/><span>Progress</span></>,current:tab==='Progress',onClick:e=>{e.preventDefault();setTab('Progress')}}
     ]} />
-    {rewindOpen && currentQuestion && <div className="rewind-overlay"><header className="rewind-head"><button type="button" className="text-btn" onClick={saveAndExitSession}>Save &amp; exit</button><b>ExamForge <span>/ Tonight’s 20 {questionIndex+1}/{sessionQs.length}</span></b><strong><Clock3 size={17}/> {fmt(Math.max(0,REWIND_SECONDS-seconds))}</strong></header><div className="rewind-body"><div className="rewind-label"><Flame size={18} fill="currentColor"/> FULL-SCREEN REWIND</div><div className="question-card"><span className="question-source">{subject} · Grade {currentQuestion.grade} · {currentQuestion.topic}</span><p className="question-provenance">{currentQuestion.sourceLabel} · {currentQuestion.provenance}</p><h2>{currentQuestion.prompt}</h2><div className="answer-list">{currentQuestion.options.map((o,i)=><button key={o} className={`answer-option ${selected===i?'picked':''} ${selected!==null&&i===currentQuestion.answer?'correct':''} ${selected===i&&i!==currentQuestion.answer?'incorrect':''}`} onClick={()=>chooseAnswer(i)}><span>{String.fromCharCode(65+i)}</span>{o}{selected!==null&&i===currentQuestion.answer&&<Check className="answer-check"/>}</button>)}</div>{selected!==null&&<div className="explanation"><b>{selected===currentQuestion.answer?'Correct.':'Not quite. Learn the method.'}</b><p>{currentQuestion.explanation}</p></div>}</div><button className="primary full submit-answer" disabled={selected===null} onClick={nextQuestion}>{questionIndex>=sessionQs.length-1?'Finish Rewind':'Next question'} <ChevronRight/></button><p className="privacy"><ShieldCheck size={15}/> Active time only — the timer pauses if you leave the app</p></div></div>}
+    {rewindOpen && currentQuestion && <div className="rewind-overlay"><header className="rewind-head"><button type="button" className="text-btn" onClick={saveAndExitSession}>Save &amp; exit</button><b>ExamForge <span>/ Tonight’s 20 {questionIndex+1}/{sessionQs.length}</span></b><strong><Clock3 size={17}/> {fmt(Math.max(0,REWIND_SECONDS-seconds))}</strong></header><div className="rewind-body"><div className="rewind-label"><Flame size={18} fill="currentColor"/> FULL-SCREEN REWIND</div><div className="question-card"><span className="question-source">{subject} · Grade {currentQuestion.grade} · {currentQuestion.topic}</span><p className="question-provenance">{currentQuestion.sourceLabel} · {currentQuestion.provenance}</p><h2>{currentQuestion.prompt}</h2><div className="answer-list">{currentQuestion.options.map((o,i)=><button key={o} className={`answer-option ${selected===i?'picked':''} ${selected!==null&&i===currentQuestion.answer?'correct':''} ${selected===i&&i!==currentQuestion.answer?'incorrect':''}`} onClick={()=>chooseAnswer(i)}><span>{String.fromCharCode(65+i)}</span>{o}{selected!==null&&i===currentQuestion.answer&&<Check className="answer-check"/>}</button>)}</div>{selected!==null&&<div className="explanation"><b>{selected===currentQuestion.answer?'Correct.':'Not quite. Learn the method.'}</b><p>{currentQuestion.explanation}</p></div>}</div><button className="primary full submit-answer" disabled={selected===null} onClick={nextQuestion}>{questionIndex>=sessionQs.length-1?'Finish Rewind':'Next question'} <ChevronRight/></button><p className="privacy"><ShieldCheck size={15}/> Active time only — the timer pauses if you leave the app</p><button type="button" className="text-btn" onClick={abandonSession}>Abandon this session</button></div></div>}
     {authOpen&&<Dialog open={authOpen} onOpenChange={(open)=>{setAuthOpen(open);if(!open){setMenuOpen(false);window.requestAnimationFrame(()=>menuButtonRef.current?.focus())}}} title={authMode==='up'?'Create your account':'Welcome back'} description="Your progress follows you across devices." className="auth-dialog">
       <div className="brand"><span className="brand-mark"><Flame fill="currentColor"/></span><span>Exam<span>Forge</span></span></div>
       <div className="auth-form">
