@@ -8,7 +8,7 @@ export type ValidatedQuestionDraft = {
 }
 
 function containsUnsafeInstruction(value: string): boolean {
-  return /\\b(ignore (all )?(previous|above|system) instructions|reveal (the )?(system prompt|api key|secret)|developer message|act as (the )?(system|developer)|override (all )?safety rules)\\b/i.test(value)
+  return /\b(ignore (all )?(previous|above|system) instructions|reveal (the )?(system prompt|api key|secret)|developer message|act as (the )?(system|developer)|override (all )?safety rules)\b/i.test(value)
 }
 
 function normaliseForEvidence(value: string): string {
@@ -20,6 +20,7 @@ export function parseQuestionDraft(content: string, sourceText: string): Validat
     .replace(/^\x60\x60\x60(?:json)?\s*/i, '')
     .replace(/\s*\x60\x60\x60$/, '')
   const value = JSON.parse(cleaned) as Partial<ValidatedQuestionDraft>
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The generated question must be a JSON object.')
 
   if (typeof value.prompt !== 'string' || value.prompt.trim().length < 12 || value.prompt.length > 700 || containsUnsafeInstruction(value.prompt)) {
     throw new Error('The generated question prompt is invalid.')
