@@ -259,34 +259,134 @@ function App() {
   }
   async function signOut() { setMenuOpen(false); await supabase?.auth.signOut(); setToast('Signed out.') }
 
-  function startRewind() {
+  function makeSessionSnapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot | null {
+    if (!sessionQs.length) return null
+    return {
+      id: activeSessionId ?? undefined,
+      subject,
+      subjectId: activeSubjectId,
+      grade: Number(grade),
+      questions: sessionQs,
+      questionIndex,
+      answers,
+      seconds,
+      startedAt: sessionStartedAt || new Date().toISOString(),
+      ...overrides,
+    }
+  }
+  function resumeRewind(snapshot: SessionSnapshot) {
+    setSubject(snapshot.subject); setSessionQs(snapshot.questions); setQuestionIndex(snapshot.questionIndex)
+    setAnswers(snapshot.answers); setSelected(snapshot.answers[snapshot.questionIndex] ?? null)
+    setSeconds(snapshot.seconds); setSessionStartedAt(snapshot.startedAt); setActiveSessionId(snapshot.id ?? null)
+    setRecoverableSession(snapshot); setRewindOpen(true)
+  }
+  async function startRewind() {
     if (rewindDone) return
-    if (!hasStarterQuestionBank) { setToast('Question content for this subject is not available yet. You can still keep it in your subject library.'); return }
-    setSessionQs(pickQuestions(subject, weak)); setQuestionIndex(0); setSelected(null); setAnswers([]); setSeconds(0); setRewindOpen(true)
+    if (recoverableSession) { resumeRewind(recoverableSession); return }
+    const questions = selectPracticeQuestions(activeSubjectId, Number(grade), weak, 5)
+    if (!questions.length) {
+      setToast(`Verified starter questions are not available for ${subject}, Grade ${grade}, yet. Your subject remains in your library.`)
+      return
+    }
+    const startedAt = new Date().toISOString()
+    const initial: SessionSnapshot = {
+      subject, subjectId: activeSubjectId, grade: Number(grade), questions,
+      questionIndex: 0, answers: [], seconds: 0, startedAt,
+    }
+    let sessionId: string | undefined
+    if (user && supabase) {
+      const { data, error } = await supabase.from('study_sessions').insert({
+        subject, subject_id: activeSubjectId, grade: Number(grade), session_type: 'practice',
+        status: 'in_progress', duration_seconds: 0, score: null, total_questions: questions.length,
+        source_label: questions[0].sourceLabel, session_state: initial,
+        started_at: startedAt, last_activity_at: startedAt, completed_at: null,
+      }).select('id').single()
+      if (error || !data?.id) {
+        console.error('Could not start study session:', error?.message)
+        setToast('Your session could not be started on your account. Check your connection and try again.')
+        return
+      }
+      sessionId = data.id
+    }
+    const snapshot = { ...initial, id: sessionId }
+    save(userStorageKey(user?.id ?? null, 'active-session'), snapshot)
+    setActiveSessionId(sessionId ?? null); setSessionStartedAt(startedAt)
+    setSessionQs(questions); setQuestionIndex(0); setSelected(null); setAnswers([]); setSeconds(0)
+    setRecoverableSession(snapshot); setSessionSummary(null); setRewindOpen(true)
   }
   async function finishRewind() {
-    const entry: Session = { date: today, score, seconds, subject }
-    const next = [...sessions, entry]
-    setSessions(next); if (user) save(userStorageKey(user.id, 'sessions'), next); setRewindOpen(false)
-    if (supabase && user) {
-      const { error } = await supabase.from('study_sessions').insert({ subject, session_type: 'rewind', duration_seconds: seconds, score, total_questions: sessionQs.length })
-      if (error) { console.error(error.message); setToast(`Rewind done: ${score}/${sessionQs.length}. Saved on this device only — sync failed.`); return }
-      setRemoteDates(d => [...d, today])
+    const finalScore = answers.reduce((n, answer, index) => n + (sessionQs[index] && answer === sessionQs[index].answer ? 1 : 0), 0)
+    const finalSnapshot = makeSessionSnapshot({ questionIndex: sessionQs.length, seconds, answers })
+    if (!finalSnapshot) return
+    if (user && supabase) {
+      if (!activeSessionId) { setToast('This session has no saved account record. Keep it open and retry.'); return }
+      const { error } = await supabase.rpc('complete_study_session', {
+        p_session_id: activeSessionId, p_session_state: { ...finalSnapshot, completed: true },
+        p_duration_seconds: seconds, p_score: finalScore, p_total_questions: sessionQs.length,
+      })
+      if (error) {
+        console.error('Session completion sync failed:', error.message)
+        save(userStorageKey(user.id, 'active-session'), finalSnapshot)
+        setToast('Your answers are safe on this device, but completion could not sync. Keep this session open and retry.')
+        return
+      }
     }
-    setToast(`Rewind complete: ${score}/${sessionQs.length} correct.`)
+    const entry: Session = { date: today, score: finalScore, seconds, subject }
+    const next = [...sessions.filter(item => item.date !== today), entry]
+    setSessions(next); save(userStorageKey(user?.id ?? null, 'sessions'), next)
+    setRemoteDates(d => Array.from(new Set([...d, today])))
+    localStorage.removeItem(userStorageKey(user?.id ?? null, 'active-session'))
+    setRecoverableSession(null); setRewindOpen(false); setActiveSessionId(null)
+    setSessionSummary({ session: entry, questions: sessionQs, answers })
+    setToast(`Tonight’s 20 complete: ${finalScore}/${sessionQs.length} correct.`)
   }
   async function chooseAnswer(i: number) {
     if (selected !== null || !currentQuestion) return
-    setSelected(i); setAnswers(a => [...a.slice(0, questionIndex), i])
     const correct = i === currentQuestion.answer
-    const next = [...attempts, { topic: currentQuestion.topic, correct, t: Date.now() }].slice(-500)
-    setAttempts(next); if (user) save(userStorageKey(user.id, 'attempts'), next)
-    if (supabase && user) {
-      const { error } = await supabase.from('question_attempts').insert({ source_type: 'seed', topic: currentQuestion.topic, is_correct: correct, response: { selected: i } })
-      if (error) console.error('Attempt sync failed:', error.message)
+    const nextAnswers = [...answers.slice(0, questionIndex), i]
+    const snapshot = makeSessionSnapshot({ answers: nextAnswers, seconds })
+    if (!snapshot) return
+    if (user && supabase) {
+      if (!activeSessionId) { setToast('Your session record is missing. Please reopen the saved session.'); return }
+      const { error } = await supabase.rpc('record_study_answer', {
+        p_session_id: activeSessionId, p_question_id: currentQuestion.id,
+        p_topic: currentQuestion.topic, p_question_position: questionIndex,
+        p_response: { selected: i }, p_is_correct: correct,
+        p_session_state: snapshot, p_duration_seconds: seconds,
+      })
+      if (error) {
+        console.error('Answer persistence failed:', error.message)
+        save(userStorageKey(user.id, 'active-session'), snapshot)
+        setToast('Answer not synced yet. Your choice is kept on this device; retry before moving on.')
+        return
+      }
     }
+    setSelected(i); setAnswers(nextAnswers)
+    const nextAttempts = [...attempts, {
+      topic: currentQuestion.topic, correct, t: Date.now(),
+      sessionId: activeSessionId ?? undefined, questionId: currentQuestion.id, response: { selected: i },
+    }].slice(-500)
+    setAttempts(nextAttempts); save(userStorageKey(user?.id ?? null, 'attempts'), nextAttempts)
   }
-  function nextQuestion() { if (questionIndex >= sessionQs.length - 1) { finishRewind(); return } setQuestionIndex(i => i + 1); setSelected(null) }
+  async function saveAndExitSession() {
+    const snapshot = makeSessionSnapshot()
+    if (!snapshot) return
+    save(userStorageKey(user?.id ?? null, 'active-session'), snapshot)
+    if (user && supabase && activeSessionId) {
+      const { error } = await supabase.from('study_sessions').update({
+        session_state: snapshot, duration_seconds: seconds, last_activity_at: new Date().toISOString(),
+      }).eq('id', activeSessionId).eq('status', 'in_progress')
+      if (error) {
+        console.error('Session pause sync failed:', error.message)
+        setToast('Saved on this device. Cloud sync will retry when you resume.')
+      } else setToast('Session saved. You can resume it later.')
+    } else setToast('Session saved. You can resume it later.')
+    setRecoverableSession(snapshot); setRewindOpen(false)
+  }
+  function nextQuestion() {
+    if (questionIndex >= sessionQs.length - 1) { void finishRewind(); return }
+    setQuestionIndex(i => i + 1); setSelected(null)
+  }
 
   function pickNotes(files: File[]) {
     const ok: File[] = []; const problems: string[] = []
