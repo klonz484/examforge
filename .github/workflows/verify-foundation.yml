@@ -55,7 +55,7 @@ jobs:
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client tesseract-ocr tesseract-ocr-eng poppler-utils imagemagick
+          sudo apt-get install -y postgresql-client tesseract-ocr tesseract-ocr-eng tesseract-ocr-afr poppler-utils imagemagick
       - name: Verify isolated Tesseract OCR worker with synthetic image only
         run: npm run test:ocr-worker
       - name: Verify learner-subject migration and RLS in disposable PostgreSQL
@@ -115,8 +115,10 @@ jobs:
           SUPABASE_ANON_KEY=$ANON_KEY
           SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
           AI_STUDY_ENABLED=false
+          OCR_WORKER_ENABLED=false
           AI_ALLOWED_ORIGINS=http://127.0.0.1:4173
           EOF
+          if grep -E 'AI_STUDY_(API_KEY|ENDPOINT|MODEL)=' "$RUNNER_TEMP/functions.env"; then echo "Provider credentials must be absent in non-production CI."; exit 1; fi
           supabase functions serve --env-file "$RUNNER_TEMP/functions.env" --no-verify-jwt > "$RUNNER_TEMP/functions.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/functions.pid"
           for attempt in $(seq 1 45); do
@@ -131,6 +133,16 @@ jobs:
           done
           cat "$RUNNER_TEMP/functions.log"
           exit 1
+      - name: Prove live AI provider calls are disabled in test configuration
+        run: |
+          code="$(curl --silent --output "$RUNNER_TEMP/ai-disabled.json" --write-out '%{http_code}' -X POST \
+            -H 'Content-Type: application/json' --data '{}' \
+            "$API_URL/functions/v1/generate-study-question")"
+          test "$code" = "503"
+          grep -q "disabled pending explicit" "$RUNNER_TEMP/ai-disabled.json"
+          ! grep -q "AI_STUDY_API_KEY" "$RUNNER_TEMP/functions.env"
+          ! grep -q "OPENAI_API_KEY" "$RUNNER_TEMP/functions.env"
+          echo "AI provider kill switch returned 503 and no provider credentials are present."
 
       - name: TypeScript and production build
         run: npm run build
