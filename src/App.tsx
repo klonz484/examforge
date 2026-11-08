@@ -7,6 +7,7 @@ import { CAPS_SUBJECTS, searchCapsSubjects, type CapsSubject } from './data/caps
 import { PRACTICE_QUESTIONS, selectPracticeQuestions, type PracticeQuestion } from './data/practiceQuestions'
 import { CAPS_ROADMAPS } from './data/capsRoadmaps'
 import { OFFICIAL_PAPER_ARCHIVES } from './data/examArchives'
+import { isFlashcardDue, scheduleFlashcardReview, type FlashcardReviewState, type ReviewGrade } from './data/spacedRepetition'
 
 type Tab = 'Dashboard' | 'Past Papers' | 'Upload Notes' | 'Progress'
 const TOPICS: Record<string, string[]> = {
@@ -62,6 +63,10 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [remoteDates, setRemoteDates] = useState<string[]>([])
   const [attempts, setAttempts] = useState<Attempt[]>([])
+  const [flashcardReviews, setFlashcardReviews] = useState<Record<string, FlashcardReviewState>>({})
+  const [mistakeSearch, setMistakeSearch] = useState('')
+  const [activeReviewId, setActiveReviewId] = useState<string | null>(null)
+  const [flashcardRevealed, setFlashcardRevealed] = useState(false)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('All')
   const [roadmapGrade, setRoadmapGrade] = useState('12')
@@ -107,6 +112,12 @@ function App() {
   const subjectAttempts = attempts.filter(a => topics.includes(a.topic))
   const masteryFor = (t: string) => { const rows = attempts.filter(a => a.topic === t).slice(-20); return rows.length ? Math.round(100 * rows.filter(r => r.correct).length / rows.length) : null }
   const accuracy = subjectAttempts.length ? Math.round(100 * subjectAttempts.filter(a => a.correct).length / subjectAttempts.length) : null
+  const mistakeQuestions = useMemo(() => {
+    const ids = Array.from(new Set(attempts.filter(item => !item.correct && item.questionId).map(item => item.questionId!)))
+    return ids.map(id => PRACTICE_QUESTIONS.find(question => question.id === id)).filter((item): item is PracticeQuestion => Boolean(item))
+      .filter(question => (question.prompt + question.topic).toLowerCase().includes(mistakeSearch.toLowerCase()))
+  }, [attempts, mistakeSearch])
+  const dueMistakeCount = mistakeQuestions.filter(question => isFlashcardDue(flashcardReviews[question.id])).length
 
   // Rewind timer: counts active, visible time only.
   useEffect(() => {
@@ -142,6 +153,8 @@ function App() {
     setRecoverableSession(load<SessionSnapshot | null>(userStorageKey(userId, 'active-session'), null))
     setSessions(load<Session[]>(userStorageKey(userId, 'sessions'), []))
     setAttempts(load<Attempt[]>(userStorageKey(userId, 'attempts'), []))
+    setFlashcardReviews(load<Record<string, FlashcardReviewState>>(userStorageKey(userId, 'flashcard-reviews'), {}))
+    setMistakeSearch(''); setActiveReviewId(null); setFlashcardRevealed(false)
     setWeak([]); setGrade('12'); setSubject('Physical Science'); setSelectedSubjectIds(['physical-science']); setCatalogueSearch(''); setAllSubjectsOpen(false); setExamDate(dateAfterDays(20))
     setOnboarded(false); setShowOnboarding(true)
     if (!userId) {
@@ -223,6 +236,28 @@ function App() {
         }))
         setAttempts(hydratedAttempts)
         save(userStorageKey(userId, 'attempts'), hydratedAttempts)
+      }
+      const { data: reviewRows, error: reviewError } = await client.from('flashcard_reviews')
+        .select('question_id,interval_days,ease_factor,repetitions,last_grade,last_reviewed_at,next_review_at,updated_at')
+        .eq('user_id', userId)
+      if (!active) return
+      const reviewTableMissing = reviewError?.code === '42P01' || reviewError?.code === 'PGRST205'
+      if (reviewError && !reviewTableMissing) {
+        console.error('Flashcard review sync failed:', reviewError.message)
+        setToast('Could not load your saved review schedule. Local mistakes are still available.')
+      } else if (!reviewError && reviewRows) {
+        const byId = Object.fromEntries(reviewRows.map(row => [String(row.question_id), {
+          question_id: String(row.question_id),
+          interval_days: Number(row.interval_days),
+          ease_factor: Number(row.ease_factor),
+          repetitions: Number(row.repetitions),
+          last_grade: row.last_grade == null ? null : Number(row.last_grade) as ReviewGrade,
+          last_reviewed_at: row.last_reviewed_at as string | null,
+          next_review_at: String(row.next_review_at),
+          updated_at: String(row.updated_at),
+        }])) as Record<string, FlashcardReviewState>
+        setFlashcardReviews(byId)
+        save(userStorageKey(userId, 'flashcard-reviews'), byId)
       }
     })()
     return () => { active = false }
@@ -454,6 +489,43 @@ function App() {
     }
     setNotes([]); setNoteStatus('Upload complete. AI question drafting is not switched on yet — your notes are stored privately.')
   }
+  async function submitFlashcardGrade(questionId: string, gradeValue: ReviewGrade) {
+    const previous = flashcardReviews[questionId]
+    if (user && supabase) {
+      const { data, error } = await supabase.rpc('review_flashcard', { p_question_id: questionId, p_grade: gradeValue })
+      if (error) {
+        const migrationMissing = error.code === '42P01' || error.code === 'PGRST202' || error.code === 'PGRST205'
+        if (!migrationMissing) {
+          console.error('Flashcard review save failed:', error.message)
+          setToast('Could not save this review to your account. Please retry.')
+          return
+        }
+        const localState = scheduleFlashcardReview(questionId, previous, gradeValue)
+        const next = { ...flashcardReviews, [questionId]: localState }
+        setFlashcardReviews(next); save(userStorageKey(user.id, 'flashcard-reviews'), next)
+        setToast('Review saved on this device only. Account sync needs the flashcard migration.')
+      } else {
+        const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null
+        if (!row) { setToast('The review was not returned by the server. Please retry.'); return }
+        const serverState: FlashcardReviewState = {
+          question_id: String(row.question_id), interval_days: Number(row.interval_days),
+          ease_factor: Number(row.ease_factor), repetitions: Number(row.repetitions),
+          last_grade: row.last_grade == null ? null : Number(row.last_grade) as ReviewGrade,
+          last_reviewed_at: row.last_reviewed_at as string | null,
+          next_review_at: String(row.next_review_at), updated_at: String(row.updated_at),
+        }
+        const next = { ...flashcardReviews, [questionId]: serverState }
+        setFlashcardReviews(next); save(userStorageKey(user.id, 'flashcard-reviews'), next)
+        setToast(`Review saved. Next review: ${new Date(serverState.next_review_at).toLocaleDateString()}.`)
+      }
+    } else {
+      const localState = scheduleFlashcardReview(questionId, previous, gradeValue)
+      const next = { ...flashcardReviews, [questionId]: localState }
+      setFlashcardReviews(next); save(userStorageKey(null, 'flashcard-reviews'), next)
+      setToast(`Review saved on this device. Next review: ${new Date(localState.next_review_at).toLocaleDateString()}.`)
+    }
+    setActiveReviewId(null); setFlashcardRevealed(false)
+  }
   function toggleTopic(topic: string) { setWeak(w => w.includes(topic) ? w.filter(t => t !== topic) : [...w, topic]) }
   function chooseSubject(name: string) { if (name !== subject) { setSubject(name); setWeak([]) } }
   function toggleEnrolledSubject(item: CapsSubject) {
@@ -569,7 +641,7 @@ function App() {
         <p className="hint">ExamForge links to the Department of Basic Education archive. The documents remain hosted by the DBE; ExamForge does not re-host or alter the papers or marking memos.</p>
       </>}
       {tab==='Upload Notes' && <><div className="page-heading"><p className="eyebrow purple-text">YOUR NOTES. YOUR QUESTIONS.</p><h1>Upload Notes</h1><p className="muted">Add notes to generate targeted practice questions.</p></div><label className="upload-zone"><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={e=>pickNotes(Array.from(e.target.files||[]))}/><div className="upload-icon"><Upload size={30}/></div><b>Take a photo or upload a PDF</b><p>Capture handwritten or printed notes instantly.</p><span className="upload-link">Choose files <Plus size={15}/></span><small>JPG, PNG, WebP or PDF · Max 10 MB per file</small></label>{notes.length>0&&<div className="selected-files">{notes.map((f,i)=><div key={`${f.name}-${i}`}><FileText size={17}/><span>{f.name}</span><button aria-label={`Remove ${f.name}`} onClick={()=>setNotes(a=>a.filter(x=>x!==f))}><X size={16}/></button></div>)}<button className="primary full" onClick={uploadNotes}>Upload {notes.length} file(s) <ChevronRight size={18}/></button></div>}{noteStatus&&<p className="status-message">{noteStatus}</p>}<section className="purple-panel"><div className="purple-icon"><FlaskConical/></div><div><b>What happens next?</b><p>Coming soon: ExamForge will extract your notes, check confidence, and draft questions linked to your weak topics. You review them before they enter Rewind. For now, uploads are stored privately.</p></div></section><div className="section-heading"><div><h2>Recently uploaded</h2><p className="muted">Your study material library</p></div></div><div className="empty-state"><BookOpen size={30}/><b>Nothing to show yet</b><p>Your uploaded pages and generated questions will appear here.</p></div></>}
-      {tab==='Progress' && <><div className="page-heading"><p className="eyebrow">HONEST FEEDBACK</p><h1>Your Progress</h1><p className="muted">Track the work, not just the feeling.</p></div><div className="progress-summary"><div><span>Study sessions</span><b>{doneDates.length}</b><div className="bar"><i style={{width:`${Math.min(100,doneDates.length*5)}%`}}/></div></div><div><span>Current streak</span><b>{streak}</b><div className="bar bluebar"><i style={{width:`${Math.min(100,streak*10)}%`}}/></div></div><div><span>Practice accuracy</span><b>{accuracy===null?'—':`${accuracy}%`}</b><div className="bar"><i style={{width:`${accuracy??0}%`}}/></div></div></div><section className="panel progress-panel"><h3>Topic accuracy</h3>{topics.map(t=>{const m=masteryFor(t);return <div className="mastery-row" key={t}><span>{t}</span><b>{m===null?'—':`${m}%`}</b><div className="bar"><i style={{width:`${m??0}%`}}/></div></div>})}</section><section className="panel"><h3>Study activity</h3>{doneDates.length===0?<div className="activity-empty"><Activity size={25}/><p>Complete your first Rewind to start building your activity history.</p></div>:<div className="activity-empty"><Activity size={25}/><p>{doneDates.length} Rewind{doneDates.length===1?'':'s'} completed. Last: {[...doneDates].sort().slice(-1)[0]}.</p></div>}</section><section className="panel mistake-notebook"><h3>Mistake notebook</h3>{attempts.filter(attempt=>!attempt.correct && attempt.questionId).length===0?<div className="activity-empty"><BookOpen size={24}/><p>No saved mistakes yet. Incorrect answers from completed practice sessions will appear here with corrections.</p></div>:attempts.filter(attempt=>!attempt.correct && attempt.questionId).slice().reverse().map((attempt,index)=>{const question=PRACTICE_QUESTIONS.find(item=>item.id===attempt.questionId);return question?<article className="mistake-row" key={`${attempt.sessionId ?? 'local'}-${question.id}-${index}`}><b>{question.topic}</b><p>{question.prompt}</p><small>Your answer: {question.options[attempt.response?.selected ?? -1] ?? 'Not recorded'}</small><p>Correct answer: {question.options[question.answer]}</p><p>{question.explanation}</p></article>:null})}</section><p className="hint">Accuracy is calculated from your last 20 saved answers per topic; it is not a claim of mastery. A dash means no answers yet.</p></>}
+      {tab==='Progress' && <><div className="page-heading"><p className="eyebrow">HONEST FEEDBACK</p><h1>Your Progress</h1><p className="muted">Track the work, not just the feeling.</p></div><div className="progress-summary"><div><span>Study sessions</span><b>{doneDates.length}</b><div className="bar"><i style={{width:`${Math.min(100,doneDates.length*5)}%`}}/></div></div><div><span>Current streak</span><b>{streak}</b><div className="bar bluebar"><i style={{width:`${Math.min(100,streak*10)}%`}}/></div></div><div><span>Practice accuracy</span><b>{accuracy===null?'—':`${accuracy}%`}</b><div className="bar"><i style={{width:`${accuracy??0}%`}}/></div></div></div><section className="panel progress-panel"><h3>Topic accuracy</h3>{topics.map(t=>{const m=masteryFor(t);return <div className="mastery-row" key={t}><span>{t}</span><b>{m===null?'—':`${m}%`}</b><div className="bar"><i style={{width:`${m??0}%`}}/></div></div>})}</section><section className="panel"><h3>Study activity</h3>{doneDates.length===0?<div className="activity-empty"><Activity size={25}/><p>Complete your first Rewind to start building your activity history.</p></div>:<div className="activity-empty"><Activity size={25}/><p>{doneDates.length} Rewind{doneDates.length===1?'':'s'} completed. Last: {[...doneDates].sort().slice(-1)[0]}.</p></div>}</section><section className="panel mistake-notebook"><div className="section-heading"><div><h3>Mistake notebook</h3><p className="muted">{mistakeQuestions.length} saved question{mistakeQuestions.length===1?'':'s'} · {dueMistakeCount} due to review</p></div></div><label className="catalogue-search"><Search size={16}/><input aria-label="Search mistake notebook" placeholder="Search saved mistakes…" value={mistakeSearch} onChange={event=>setMistakeSearch(event.target.value)}/></label>{mistakeQuestions.length===0?<div className="activity-empty"><BookOpen size={24}/><p>No saved mistakes match this search. Incorrect answers from practice sessions appear here with corrections.</p></div>:mistakeQuestions.map(question=>{const review=flashcardReviews[question.id];const due=isFlashcardDue(review);const latest=attempts.filter(item=>item.questionId===question.id&&!item.correct).slice(-1)[0];return <article className="mistake-row" key={question.id}><div className="mistake-title-row"><b>{question.topic}</b><span className={`review-status ${due?'due':'scheduled'}`}>{due?'Due now':`Due ${new Date(review!.next_review_at).toLocaleDateString()}`}</span></div><p>{question.prompt}</p><small>Your answer: {question.options[latest?.response?.selected ?? -1] ?? 'Not recorded'}</small><p>Correct answer: {question.options[question.answer]}</p><p>{question.explanation}</p><button type="button" className="text-btn" onClick={()=>{setActiveReviewId(question.id);setFlashcardRevealed(false)}}>{due?'Review now':'Review card'}</button></article>})}</section><p className="hint">Accuracy is calculated from your last 20 saved answers per topic; it is not a claim of mastery. A dash means no answers yet.</p></>}
     </main>
     <Navigation className="bottom-nav" label="Main navigation" items={[
       {href:'#dashboard',label:<><Home size={21}/><span>Dashboard</span></>,current:tab==='Dashboard',onClick:e=>{e.preventDefault();setTab('Dashboard')}},
@@ -578,6 +650,7 @@ function App() {
       {href:'#progress',label:<><Activity size={21}/><span>Progress</span></>,current:tab==='Progress',onClick:e=>{e.preventDefault();setTab('Progress')}}
     ]} />
     {rewindOpen && currentQuestion && <div className="rewind-overlay"><header className="rewind-head"><button type="button" className="text-btn" onClick={saveAndExitSession}>Save &amp; exit</button><b>ExamForge <span>/ Tonight’s 20 {questionIndex+1}/{sessionQs.length}</span></b><strong><Clock3 size={17}/> {fmt(Math.max(0,REWIND_SECONDS-seconds))}</strong></header><div className="rewind-body"><div className="rewind-label"><Flame size={18} fill="currentColor"/> TONIGHT’S 20 · FOCUSED PRACTICE</div><div className="question-card"><span className="question-source">{subject} · Grade {currentQuestion.grade} · {currentQuestion.topic}</span><p className="question-provenance">{currentQuestion.sourceLabel} · {currentQuestion.provenance}</p><h2>{currentQuestion.prompt}</h2><div className="answer-list">{currentQuestion.options.map((o,i)=><button key={o} className={`answer-option ${selected===i?'picked':''} ${selected!==null&&i===currentQuestion.answer?'correct':''} ${selected===i&&i!==currentQuestion.answer?'incorrect':''}`} onClick={()=>chooseAnswer(i)}><span>{String.fromCharCode(65+i)}</span>{o}{selected!==null&&i===currentQuestion.answer&&<Check className="answer-check"/>}</button>)}</div>{selected!==null&&<div className="explanation"><b>{selected===currentQuestion.answer?'Correct.':'Not quite. Learn the method.'}</b><p>{currentQuestion.explanation}</p></div>}</div><button className="primary full submit-answer" disabled={selected===null} onClick={nextQuestion}>{questionIndex>=sessionQs.length-1?'Finish Rewind':'Next question'} <ChevronRight/></button><p className="privacy"><ShieldCheck size={15}/> Active time only — the timer pauses if you leave the app</p><button type="button" className="text-btn" onClick={abandonSession}>Abandon this session</button></div></div>}
+    {activeReviewId && (() => { const question = PRACTICE_QUESTIONS.find(item => item.id === activeReviewId); return question ? <div className="review-overlay" role="dialog" aria-modal="true" aria-labelledby="review-card-title"><section className="review-card"><div className="review-card-head"><span className="tag">Spaced review</span><button type="button" className="text-btn" onClick={()=>{setActiveReviewId(null);setFlashcardRevealed(false)}}>Close</button></div><p className="eyebrow">{question.subject} · {question.topic}</p><h2 id="review-card-title">{question.prompt}</h2>{flashcardRevealed ? <div className="review-answer"><b>Correct answer</b><p>{question.options[question.answer]}</p><b>Explanation</b><p>{question.explanation}</p></div> : <button type="button" className="primary full" onClick={()=>setFlashcardRevealed(true)}>Reveal correction</button>}{flashcardRevealed && <><p className="hint">How well did you recall it?</p><div className="review-grade-actions"><button type="button" onClick={()=>void submitFlashcardGrade(question.id,0)}>Again</button><button type="button" onClick={()=>void submitFlashcardGrade(question.id,1)}>Hard</button><button type="button" onClick={()=>void submitFlashcardGrade(question.id,2)}>Good</button><button type="button" onClick={()=>void submitFlashcardGrade(question.id,3)}>Easy</button></div></>}</section></div> : null })()}
     {authOpen&&<Dialog open={authOpen} onOpenChange={(open)=>{setAuthOpen(open);if(!open){setMenuOpen(false);window.requestAnimationFrame(()=>menuButtonRef.current?.focus())}}} title={authMode==='up'?'Create your account':'Welcome back'} description="Your progress follows you across devices." className="auth-dialog">
       <div className="brand"><span className="brand-mark"><Flame fill="currentColor"/></span><span>Exam<span>Forge</span></span></div>
       <div className="auth-form">
