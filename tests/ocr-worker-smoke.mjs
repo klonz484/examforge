@@ -71,7 +71,7 @@ try {
   const health = await waitForWorker()
   if (!health.languages.includes("eng") || !health.languages.includes("afr")) throw new Error("Worker health must advertise English and Afrikaans traineddata.")
 
-  const textImage = syntheticImage("Ohms law voltage equals current times resistance", "/tmp/examforge-ocr-text.png")
+  const textImage = syntheticImage("Voltage equals current times resistance", "/tmp/examforge-ocr-text.png")
   const unauthorised = await fetch(base + "/ocr", { method: "POST", headers: { "Content-Type": "image/png" }, body: textImage })
   if (unauthorised.status !== 401) throw new Error("Worker must reject requests without its bearer token.")
 
@@ -88,7 +88,7 @@ try {
   if (!textResponse.ok) throw new Error("Worker text OCR failed: " + await textResponse.text())
   const textPayload = await textResponse.json()
   if (textPayload.engine !== "tesseract" || textPayload.pageCount !== 1 ||
-      !/hms law|ohms law/i.test(textPayload.text) || textPayload.languages !== "eng+afr" ||
+      !/voltage equals current/i.test(textPayload.text) || textPayload.languages !== "eng+afr" ||
       textPayload.confidenceStatus !== "not-calibrated") {
     throw new Error("Worker did not return expected multilingual text OCR: " + JSON.stringify(textPayload))
   }
