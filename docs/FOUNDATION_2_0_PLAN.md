@@ -340,3 +340,35 @@ The earlier failed browser run was corrected and is retained in history; complet
 Proceed with the approved Phase 1 exit criteria. First priority is to review the current onboarding and subject-selection save/hydration flow, then design the additive `learner_subjects` persistence and account-isolation strategy. Preserve the legacy `profiles.primary_subject` contract. Prepare migration and RLS tests for a disposable/staging database; do not apply them to the connected live Supabase project without explicit approval. Ensure save success is only shown after confirmed persistence, and preserve guest-to-account and existing-account behaviour.
 
 **Phase completion notification:** Phase 0 is now recorded as complete on this development branch. This is not production release approval.
+
+
+## 11. Phase 1 exit review — 8 November 2026
+
+### Phase 1 — Complete the learner experience: COMPLETE on the foundation branch
+
+The Phase 1 implementation and documented exit criteria have been verified on the isolated development branch. This is not production release approval.
+
+**Delivered**
+- Reviewed CAPS subject catalogue with stable identifiers and explicit `atp-listed`, `specialist-atp`, `caps-index-only`, and `pathway-parent` distinctions.
+- Unlimited subject selection in onboarding, preserving legacy Mathematics / Physical Sciences profile compatibility.
+- Exactly seven permanent dashboard subject-card positions plus expandable **All subjects** library.
+- Unrestricted daily subject choice among enrolled subjects.
+- Additive `learner_subjects` migration with legacy backfill, own-account RLS policies, and a transactional onboarding RPC; legacy `profiles.primary_subject` contract retained.
+- Account-scoped browser persistence, guest-to-new-account preservation, existing-account hydration without overwriting established selections, and explicit save failure handling.
+- Automated coverage for catalogue integrity, onboarding, dashboard, daily selection, keyboard-operable theme selection, persistence across reload, and learner data isolation.
+
+**Verification evidence**
+- [PR #3 verification run 42445416667](https://github.com/klonz484/examforge/actions/runs/42445416667) completed successfully on head `ef4894e181fa1215e6df95e77118629fb2807f29`.
+- The isolated workflow ran the learner-subject migration/RLS checks against a disposable PostgreSQL 16 service container; that step passed.
+- TypeScript/production build passed.
+- Playwright: **54 passed, 4 skipped**. The four skipped tests require explicitly configured disposable Supabase staging credentials; they were not run against the live project. Existing account-isolation coverage in the suite passed.
+- The test suite includes Chromium, Firefox, and WebKit projects; the successful run completed.
+- Earlier failed runs are retained as history and are not used as completion evidence.
+
+**Limitations and release boundary**
+- The migration has only been exercised in disposable CI PostgreSQL. It has **not** been applied to the connected live Supabase project.
+- No merge to `main`, GitHub Pages deployment, or live database change has occurred. PR #3 remains open for review; production integration is a separate approval.
+- Full manual assistive-technology validation (including physical Android screen-reader testing) remains part of Phase 6 launch readiness; automated semantic/keyboard checks are not a substitute for that manual audit.
+- Four optional staging-Supabase E2E tests remain skipped until a disposable staging project is explicitly configured. Do not run destructive test-account workflows against production.
+
+**Phase 1 status: COMPLETE on the foundation branch.** The next implementation phase is Phase 2 — Complete the Tonight's 20 learning loop.
