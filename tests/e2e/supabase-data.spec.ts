@@ -306,6 +306,12 @@ test('signed-in learner can recover a cloud session after sign-out and sign-in',
     return raw ? JSON.parse(raw).length : 0
   }, userId)).toBe(0)
 
+  // The standalone test client signed out before browser-driven sign-in.
+  // Re-authenticate it to read the same learner-owned row under RLS.
+  const querySignIn = await account.auth.signInWithPassword({ email: emailC!, password: passwordC! })
+  expect(querySignIn.error).toBeNull()
+  expect(querySignIn.data.user?.id).toBe(userId)
+
   const syncedSession = await account.from('study_sessions')
     .select('id,subject_id,grade')
     .eq('user_id', userId).eq('status', 'in_progress')
