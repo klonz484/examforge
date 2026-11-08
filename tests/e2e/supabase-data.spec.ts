@@ -190,6 +190,7 @@ test('signed-in learner can recover a cloud session after sign-out and sign-in',
   await page.getByLabel('Password').fill(passwordA!)
   await page.getByRole('button', { name: 'Sign in' }).click()
 
+  await expect(page.getByLabel("Choose today's study subject")).toHaveValue('mathematics')
   await expect(page.getByRole('button', { name: /Start Tonight/ })).toBeVisible()
   await page.getByRole('button', { name: /Start Tonight/ }).click()
   await page.locator('.answer-option').nth(3).click()
