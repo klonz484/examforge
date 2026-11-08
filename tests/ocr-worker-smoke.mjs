@@ -105,8 +105,8 @@ try {
   const equationResponse = await postOcr(equationImage, "eng")
   if (!equationResponse.ok) throw new Error("Worker equation OCR failed: " + await equationResponse.text())
   const equationPayload = await equationResponse.json()
-  if (!/f\s*=\s*m\s*x\s*a/i.test(equationPayload.equationText.replace(/\s+/g, " "))) {
-    throw new Error("Equation-oriented pass did not preserve the synthetic F = m x a formula: " + JSON.stringify(equationPayload))
+  if (!/f\s*=\s*ma/i.test(equationPayload.equationText.replace(/\s+/g, " "))) {
+    throw new Error("Equation-oriented pass did not preserve the synthetic F = m a formula: " + JSON.stringify(equationPayload))
   }
   if (!["equation-symbols-detected-best-effort", "no-equation-symbols-detected"].includes(equationPayload.equationStatus)) {
     throw new Error("Equation status must use an explicit bounded value.")
