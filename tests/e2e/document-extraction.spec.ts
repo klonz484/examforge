@@ -140,6 +140,31 @@ test('mock provider treats prompt injection in synthetic source as untrusted evi
   expect(parsed.evidence).not.toMatch(/ignore|reveal|api key/i)
 })
 
+test('Tesseract adapter sends approved language settings and validates bounded worker results', async () => {
+  const originalFetch = globalThis.fetch
+  let receivedLanguageHeader = ''
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    receivedLanguageHeader = new Headers(init?.headers).get('X-OCR-Languages') ?? ''
+    return new Response(JSON.stringify({
+      text: 'Synthetic OCR source text with enough words to pass the usable-study-text threshold for testing.',
+      equationText: 'F = m x a',
+      pageCount: 1,
+      engine: 'tesseract',
+      languages: 'eng+afr',
+      equationStatus: 'equation-symbols-detected-best-effort',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }) as typeof fetch
+  try {
+    const result = await runTesseractOcr(new TextEncoder().encode('%PDF-1.7 synthetic fixture'), 'application/pdf', 'http://127.0.0.1:8787/ocr', 'x'.repeat(40))
+    expect(receivedLanguageHeader).toBe('eng+afr')
+    expect(result.languages).toBe('eng+afr')
+    expect(result.equationText).toBe('F = m x a')
+    expect(result.confidenceStatus).toBe('not-calibrated')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('Tesseract adapter rejects unapproved remote HTTP endpoints and unsupported input types', async () => {
   const bytes = new TextEncoder().encode('%PDF-1.7 synthetic fixture')
   await expect(runTesseractOcr(bytes, 'application/pdf', 'http://ocr.example.test/ocr', 'x'.repeat(40))).rejects.toThrow(/HTTPS/)
