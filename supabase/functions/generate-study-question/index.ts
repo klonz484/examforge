@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 import { parseQuestionDraft } from "../_shared/ai-validation.ts"
+import { isSupportedAiStudyContext } from "../_shared/ai-caps-metadata.ts"
 
 type QuestionDraft = ReturnType<typeof parseQuestionDraft>
 
@@ -95,6 +96,10 @@ Deno.serve(async request => {
       (requestedNoteId ? !/^[0-9a-f-]{36}$/i.test(requestedNoteId) : sourceText.length < 100) ||
       sourceText.length > 8000) {
     return json(400, { error: "Provide a valid Grade 10–12 subject, topic, and either an extracted private note or 100–8,000 characters of study text." }, origin)
+  }
+
+  if (!isSupportedAiStudyContext(grade, subjectId, subjectName, topic)) {
+    return json(422, { error: "This subject, grade and topic are not in the currently supported ExamForge practice map." }, origin)
   }
 
   if (requestedNoteId) {
