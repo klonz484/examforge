@@ -239,6 +239,8 @@ Deno.serve(async request => {
     subjectName,
     topic,
     confidence: draft.confidence,
+    answerIndex: draft.answerIndex,
+    explanation: draft.explanation,
     sourceLabel: "AI-generated practice draft",
     provenance,
     reviewStatus: "pending",
