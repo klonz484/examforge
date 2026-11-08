@@ -20,6 +20,21 @@ type Attempt = { topic: string; correct: boolean; t: number; sessionId?: string;
 type SessionSnapshot = { id?: string; updatedAt?: string; subject: string; subjectId: string; grade: number; questions: PracticeQuestion[]; questionIndex: number; answers: number[]; seconds: number; startedAt: string }
 type SessionSummary = { session: Session; questions: PracticeQuestion[]; answers: number[] }
 type Profile = { grade: string; examDate: string; subject: string; weak: string[] }
+type AIStudyDraft = {
+  id: string
+  prompt: string
+  options: string[]
+  answerIndex: number
+  explanation: string
+  grade: number
+  subjectId: string
+  subjectName: string
+  topic: string
+  confidence: number
+  sourceLabel: string
+  provenance: string
+  reviewStatus: 'pending' | 'approved' | 'rejected'
+}
 
 function load<T>(key: string, fallback: T): T {
   try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as T) : fallback } catch { return fallback }
@@ -70,6 +85,10 @@ function App() {
   const [roadmapSubjectId, setRoadmapSubjectId] = useState<'mathematics' | 'physical-science'>('mathematics')
   const [notes, setNotes] = useState<File[]>([])
   const [noteStatus, setNoteStatus] = useState('')
+  const [aiSourceText, setAiSourceText] = useState('')
+  const [aiGenerationStatus, setAiGenerationStatus] = useState('')
+  const [aiDraft, setAiDraft] = useState<AIStudyDraft | null>(null)
+  const [aiBusy, setAiBusy] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [userEmail, setUserEmail] = useState('')
   const [authOpen, setAuthOpen] = useState(false)
@@ -487,6 +506,73 @@ function App() {
     }
     setNotes([]); setNoteStatus('Upload complete. AI question drafting is not switched on yet — your notes are stored privately.')
   }
+  async function generateAIQuestionDraft() {
+    if (!supabase) { setAiGenerationStatus('Connect Supabase before using the AI Academy.'); return }
+    if (!user) { setAuthOpen(true); setAiGenerationStatus('Sign in to create a private AI question draft.'); return }
+    if (aiSourceText.trim().length < 100) { setAiGenerationStatus('Paste at least 100 characters of study text first.'); return }
+    if (aiSourceText.length > 8000) { setAiGenerationStatus('Keep the source text under 8,000 characters per draft.'); return }
+    if (!activeSubjectId || !topics.length) { setAiGenerationStatus('Choose a subject and grade with an available topic map first.'); return }
+
+    setAiBusy(true); setAiGenerationStatus('Checking your daily allowance and drafting one question securely…')
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-study-question', {
+        body: {
+          grade: Number(grade), subjectId: activeSubjectId, subjectName: subject,
+          topic: weak[0] ?? topics[0], sourceText: aiSourceText.trim(),
+        },
+      })
+      if (error) {
+        let detail = error.message
+        try {
+          const context = (error as { context?: Response }).context
+          if (context) {
+            const body = await context.clone().json()
+            if (typeof body?.error === 'string') detail = body.error
+          }
+        } catch { /* keep the provider-safe error text */ }
+        setAiGenerationStatus(detail || 'AI drafting is not available right now.')
+        return
+      }
+      if (!data?.id || !Array.isArray(data.options) || data.options.length !== 4 ||
+          typeof data.answerIndex !== 'number' || typeof data.prompt !== 'string') {
+        setAiGenerationStatus('The server response did not pass the question preview checks. Try again later.')
+        return
+      }
+      const draft: AIStudyDraft = {
+        id: String(data.id), prompt: String(data.prompt), options: data.options.map((item: unknown) => String(item)),
+        answerIndex: Number(data.answerIndex), explanation: String(data.explanation ?? ''),
+        grade: Number(data.grade), subjectId: String(data.subjectId), subjectName: String(data.subjectName),
+        topic: String(data.topic), confidence: Number(data.confidence), sourceLabel: String(data.sourceLabel),
+        provenance: String(data.provenance), reviewStatus: 'pending',
+      }
+      setAiDraft(draft)
+      setAiGenerationStatus('Draft created. Review the answer and explanation before approving it.')
+    } catch (error) {
+      console.error('AI draft request failed:', error)
+      setAiGenerationStatus('AI drafting failed. Your existing notes and study history are unchanged.')
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
+  async function setAIDraftReviewStatus(status: 'approved' | 'rejected') {
+    if (!user || !supabase || !aiDraft) { setAiGenerationStatus('Sign in again to review this draft.'); return }
+    setAiBusy(true)
+    const { data, error } = await supabase.from('generated_questions')
+      .update({ review_status: status })
+      .eq('id', aiDraft.id).eq('user_id', user.id).select('id').maybeSingle()
+    setAiBusy(false)
+    if (error || !data?.id) {
+      console.error('AI draft review update failed:', error?.message)
+      setAiGenerationStatus('Your review decision could not be saved. Please retry.')
+      return
+    }
+    setAiDraft({ ...aiDraft, reviewStatus: status })
+    setAiGenerationStatus(status === 'approved'
+      ? 'Draft approved and saved to your question library. It is still labelled AI-generated, not official DBE content.'
+      : 'Draft rejected. It remains marked rejected in your private question library.')
+  }
+
   async function submitFlashcardGrade(questionId: string, gradeValue: ReviewGrade) {
     const previous = flashcardReviews[questionId]
     if (user && supabase) {
@@ -638,7 +724,7 @@ function App() {
         </article>)}</div>
         <p className="hint">ExamForge links to the Department of Basic Education archive. The documents remain hosted by the DBE; ExamForge does not re-host or alter the papers or marking memos.</p>
       </>}
-      {tab==='Upload Notes' && <><div className="page-heading"><p className="eyebrow purple-text">YOUR NOTES. YOUR QUESTIONS.</p><h1>Upload Notes</h1><p className="muted">Add notes to generate targeted practice questions.</p></div><label className="upload-zone"><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={e=>pickNotes(Array.from(e.target.files||[]))}/><div className="upload-icon"><Upload size={30}/></div><b>Take a photo or upload a PDF</b><p>Capture handwritten or printed notes instantly.</p><span className="upload-link">Choose files <Plus size={15}/></span><small>JPG, PNG, WebP or PDF · Max 10 MB per file</small></label>{notes.length>0&&<div className="selected-files">{notes.map((f,i)=><div key={`${f.name}-${i}`}><FileText size={17}/><span>{f.name}</span><button aria-label={`Remove ${f.name}`} onClick={()=>setNotes(a=>a.filter(x=>x!==f))}><X size={16}/></button></div>)}<button className="primary full" onClick={uploadNotes}>Upload {notes.length} file(s) <ChevronRight size={18}/></button></div>}{noteStatus&&<p className="status-message">{noteStatus}</p>}<section className="purple-panel"><div className="purple-icon"><FlaskConical/></div><div><b>What happens next?</b><p>Coming soon: ExamForge will extract your notes, check confidence, and draft questions linked to your weak topics. You review them before they enter Rewind. For now, uploads are stored privately.</p></div></section><div className="section-heading"><div><h2>Recently uploaded</h2><p className="muted">Your study material library</p></div></div><div className="empty-state"><BookOpen size={30}/><b>Nothing to show yet</b><p>Your uploaded pages and generated questions will appear here.</p></div></>}
+      {tab==='Upload Notes' && <><div className="page-heading"><p className="eyebrow purple-text">YOUR NOTES. YOUR QUESTIONS.</p><h1>Upload Notes</h1><p className="muted">Add notes to generate targeted practice questions.</p></div><label className="upload-zone"><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={e=>pickNotes(Array.from(e.target.files||[]))}/><div className="upload-icon"><Upload size={30}/></div><b>Take a photo or upload a PDF</b><p>Capture handwritten or printed notes instantly.</p><span className="upload-link">Choose files <Plus size={15}/></span><small>JPG, PNG, WebP or PDF · Max 10 MB per file</small></label>{notes.length>0&&<div className="selected-files">{notes.map((f,i)=><div key={`${f.name}-${i}`}><FileText size={17}/><span>{f.name}</span><button aria-label={`Remove ${f.name}`} onClick={()=>setNotes(a=>a.filter(x=>x!==f))}><X size={16}/></button></div>)}<button className="primary full" onClick={uploadNotes}>Upload {notes.length} file(s) <ChevronRight size={18}/></button></div>}{noteStatus&&<p className="status-message">{noteStatus}</p>}<section className="purple-panel"><div className="purple-icon"><FlaskConical/></div><div><b>What happens next?</b><p>Coming soon: ExamForge will extract your notes, check confidence, and draft questions linked to your weak topics. You review them before they enter Rewind. For now, uploads are stored privately.</p></div></section><div className="section-heading"><div><h2>Recently uploaded</h2><p className="muted">Your study material library</p></div></div><section className="panel ai-draft-panel"><div className="section-heading"><div><h2>AI question studio</h2><p className="muted">Paste extracted study text to create one private question draft.</p></div><span className="tag">Beta · server-side</span></div><label className="field-label" htmlFor="ai-source-text">Study text</label><textarea id="ai-source-text" rows={6} maxLength={8000} value={aiSourceText} onChange={event=>setAiSourceText(event.target.value)} placeholder="Paste a section of your textbook or class notes (100–8,000 characters). Do not include personal information."/><div className="ai-source-meta"><span>{aiSourceText.length}/8,000 characters</span><span>{user?'Private learner account':'Sign in required'}</span></div><button type="button" className="primary full" disabled={aiBusy || aiSourceText.trim().length<100} onClick={()=>void generateAIQuestionDraft()}>{aiBusy?'Working securely…':'Generate one question draft'} <ChevronRight size={18}/></button>{aiGenerationStatus&&<p className="status-message" role="status">{aiGenerationStatus}</p>}{aiDraft&&<article className="ai-question-preview"><div className="ai-preview-top"><span className="tag">{aiDraft.reviewStatus==='pending'?'Pending your review':aiDraft.reviewStatus==='approved'?'Approved draft':'Rejected draft'}</span><span className="ai-confidence">Source confidence: {Math.round(aiDraft.confidence*100)}%</span></div><p className="question-source">{aiDraft.subjectName} · Grade {aiDraft.grade} · {aiDraft.topic}</p><h3>{aiDraft.prompt}</h3><ol className="ai-answer-options">{aiDraft.options.map((option,index)=><li className={index===aiDraft.answerIndex?'ai-correct-option':''} key={option}>{option}{index===aiDraft.answerIndex?' · Suggested answer':''}</li>)}</ol><div className="review-answer"><b>Explanation</b><p>{aiDraft.explanation}</p></div><p className="archive-provenance">{aiDraft.sourceLabel} · {aiDraft.provenance}</p>{aiDraft.reviewStatus==='pending'&&<div className="ai-review-actions"><button type="button" disabled={aiBusy} onClick={()=>void setAIDraftReviewStatus('rejected')}>Reject draft</button><button type="button" disabled={aiBusy} onClick={()=>void setAIDraftReviewStatus('approved')}>Approve draft</button></div>}</article>}<p className="hint">The AI draft is not inserted into Tonight’s 20. Text extraction/OCR for uploaded PDFs and images is not yet connected; paste extracted text here. The provider remains disabled until the project owner configures server-side secrets.</p></section><div className="empty-state"><BookOpen size={30}/><b>Nothing processed yet</b><p>Private uploaded files remain queued until a verified extraction service is configured.</p></div></>}
       {tab==='Progress' && <><div className="page-heading"><p className="eyebrow">EVIDENCE-BASED FEEDBACK</p><h1>Your Progress</h1><p className="muted">Accuracy reflects submitted answers. Activity is not the same as mastery.</p></div><div className="progress-summary"><div><span>Completed sessions</span><b>{doneDates.length}</b><div className="bar"><i style={{width:`${Math.min(100,doneDates.length*5)}%`}}/></div></div><div><span>Current streak</span><b>{streak}</b><div className="bar bluebar"><i style={{width:`${Math.min(100,streak*10)}%`}}/></div></div><div><span>Practice accuracy</span><b>{accuracy===null?'—':`${accuracy}%`}</b><div className="bar"><i style={{width:`${accuracy??0}%`}}/></div></div></div><section className="panel progress-panel"><h3>Recent accuracy trend</h3><div className="trend-summary"><div><small>Last 7 days</small><b>{progressInsight.recentAccuracy===null?'—':`${progressInsight.recentAccuracy}%`}</b><span>{progressInsight.recentAttempts} recorded answers</span></div><div><small>Previous 7 days</small><b>{progressInsight.previousAccuracy===null?'—':`${progressInsight.previousAccuracy}%`}</b><span>{progressInsight.previousAttempts} recorded answers</span></div><span className={`trend-label trend-${progressInsight.trend}`}>{progressInsight.trend==='insufficient-data'?'Not enough trend data':progressInsight.trend}</span></div></section><section className="panel recommendation-panel"><div className="section-heading"><div><h3>Suggested next focus</h3><p className="muted">Optional · based on your recorded answers</p></div><span className="tag">You choose</span></div>{progressInsight.recommendedTopic ? <><b>{progressInsight.recommendedTopic.topic}</b><p className="muted">{progressInsight.explanation}</p><button type="button" className="text-btn" onClick={()=>{setWeak([progressInsight.recommendedTopic!.topic]);setToast(`Suggested focus set to ${progressInsight.recommendedTopic!.topic}. You can change it whenever you like.`);setTab('Dashboard')}}>Use this topic next</button></> : <p className="muted">{progressInsight.explanation}</p>}</section><section className="panel progress-panel"><h3>Topic accuracy · last 20 attempts</h3>{progressInsight.topics.map(item=><div className="mastery-row" key={item.topic}><span>{item.topic}<small className="evidence-count">{item.attempts} attempt{item.attempts===1?'':'s'}{item.evidenceStatus==='insufficient-sample'?' · building sample':''}</small></span><b>{item.attempts===0?'—':`${item.accuracy}%`}</b><div className="bar"><i style={{width:`${item.attempts?item.accuracy:0}%`}}/></div></div>)}</section><section className="panel"><h3>Study activity</h3>{doneDates.length===0?<div className="activity-empty"><Activity size={25}/><p>Complete your first Rewind to start building your activity history.</p></div>:<div className="activity-empty"><Activity size={25}/><p>{doneDates.length} Rewind{doneDates.length===1?'':'s'} completed. Last: {[...doneDates].sort().slice(-1)[0]}.</p></div>}</section><section className="panel mistake-notebook"><div className="section-heading"><div><h3>Mistake notebook</h3><p className="muted">{mistakeQuestions.length} saved question{mistakeQuestions.length===1?'':'s'} · {dueMistakeCount} due to review</p></div></div><label className="catalogue-search"><Search size={16}/><input aria-label="Search mistake notebook" placeholder="Search saved mistakes…" value={mistakeSearch} onChange={event=>setMistakeSearch(event.target.value)}/></label>{mistakeQuestions.length===0?<div className="activity-empty"><BookOpen size={24}/><p>No saved mistakes match this search. Incorrect answers from practice sessions appear here with corrections.</p></div>:mistakeQuestions.map(question=>{const review=flashcardReviews[question.id];const due=isFlashcardDue(review);const latest=attempts.filter(item=>item.questionId===question.id&&!item.correct).slice(-1)[0];return <article className="mistake-row" key={question.id}><div className="mistake-title-row"><b>{question.topic}</b><span className={`review-status ${due?'due':'scheduled'}`}>{due?'Due now':`Due ${new Date(review!.next_review_at).toLocaleDateString()}`}</span></div><p>{question.prompt}</p><small>Your answer: {question.options[latest?.response?.selected ?? -1] ?? 'Not recorded'}</small><p>Correct answer: {question.options[question.answer]}</p><p>{question.explanation}</p><button type="button" className="text-btn" onClick={()=>{setActiveReviewId(question.id);setFlashcardRevealed(false)}}>{due?'Review now':'Review card'}</button></article>})}</section><p className="hint">Accuracy is calculated from saved attempts per topic; a small sample is shown as developing evidence, not mastery.</p></>}
     </main>
     <Navigation className="bottom-nav" label="Main navigation" items={[
