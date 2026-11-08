@@ -44,7 +44,7 @@ test('learner can pause, recover, complete Tonight’s 20 and review saved mista
   await expect(page.locator('.session-summary')).toContainText('Tonight’s 20 complete')
   await expect(page.locator('.session-summary')).toContainText('0/5 correct')
 
-  await page.getByRole('button', { name: /Progress/ }).click()
+  await page.getByRole('link', { name: /Progress/ }).click()
   await expect(page.locator('.mistake-notebook')).toBeVisible()
   await expect(page.locator('.mistake-notebook .mistake-row')).toHaveCount(5)
 })
