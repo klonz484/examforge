@@ -143,6 +143,20 @@ Deno.serve(async request => {
     return json(429, { error: "You have reached today's AI question-draft limit. You can continue using ordinary practice." }, origin)
   }
 
+  const { data: enrolled, error: enrolmentError } = await learnerClient
+    .from("learner_subjects")
+    .select("subject_id")
+    .eq("user_id", learner.id)
+    .eq("subject_id", subjectId)
+    .maybeSingle()
+  if (enrolmentError) {
+    console.error("Could not verify learner subject enrolment:", enrolmentError.message)
+    return json(503, { error: "Your subject enrolment could not be verified. Please retry later." }, origin)
+  }
+  if (!enrolled) {
+    return json(403, { error: "Choose a subject in your learner library before generating a question." }, origin)
+  }
+
   const systemPrompt = [
     "You create one original educational multiple-choice practice question for a South African FET learner.",
     "Use only the learner-provided source text as factual grounding. Do not copy long passages.",
