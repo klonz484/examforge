@@ -78,6 +78,10 @@ jobs:
         run: psql -h localhost -U postgres -d examforge_test -v ON_ERROR_STOP=1 -f tests/sql/recoverable-study-sessions.sql
         env:
           PGPASSWORD: postgres
+      - name: Verify spaced-repetition scheduling and RLS in disposable PostgreSQL
+        run: psql -h localhost -U postgres -d examforge_test -v ON_ERROR_STOP=1 -f tests/sql/flashcard-reviews.sql
+        env:
+          PGPASSWORD: postgres
       - name: Start disposable local Supabase
         uses: supabase/setup-cli@v1
         with:
