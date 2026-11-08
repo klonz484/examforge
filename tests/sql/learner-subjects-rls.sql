@@ -12,6 +12,37 @@ as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$
 grant usage on schema auth to authenticated;
 grant execute on function auth.uid() to authenticated;
 
+create table public.study_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  subject text not null,
+  session_type text not null check (session_type in ('rewind','paper','practice','mock')),
+  duration_seconds int not null default 0 check (duration_seconds >= 0),
+  score int,
+  total_questions int,
+  check (score is null or (score >= 0 and total_questions is not null and score <= total_questions)),
+  completed_at timestamptz not null default now()
+);
+alter table public.study_sessions enable row level security;
+create policy sessions_select_own on public.study_sessions for select to authenticated using (auth.uid() = user_id);
+create policy sessions_insert_own on public.study_sessions for insert to authenticated with check (auth.uid() = user_id);
+grant select, insert on public.study_sessions to authenticated;
+
+create table public.question_attempts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  generated_question_id uuid,
+  source_type text not null check (source_type in ('generated','past_paper','formula','seed')),
+  topic text not null,
+  is_correct boolean not null,
+  response jsonb,
+  attempted_at timestamptz not null default now()
+);
+alter table public.question_attempts enable row level security;
+create policy attempts_select_own on public.question_attempts for select to authenticated using (auth.uid() = user_id);
+create policy attempts_insert_own on public.question_attempts for insert to authenticated with check (auth.uid() = user_id);
+grant select, insert on public.question_attempts to authenticated;
+
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   grade int check (grade between 10 and 12),
@@ -68,7 +99,71 @@ select public.save_learner_onboarding(
   array['mathematics', 'accounting', 'history', 'accounting']
 );
 
-do $$
+-- Create and answer a recoverable session as Account A. The answer RPC
+-- writes the attempt and recovery snapshot in one transaction.
+insert into public.study_sessions (
+  user_id, subject, session_type, duration_seconds, status, grade, subject_id,
+  source_label, session_state, completed_at
+) values (
+  auth.uid(), 'Mathematics', 'practice', 0, 'in_progress', 12, 'mathematics',
+  'ExamForge original practice', '{"questionIndex":0,"answers":[]}'::jsonb, null
+) returning id as session_id \\gset
+
+select public.record_study_answer(
+  :'session_id'::uuid,
+  'math-g12-algebra-001',
+  'Algebra',
+  0,
+  '{"selected":0}'::jsonb,
+  true,
+  '{"questionIndex":1,"answers":[0]}'::jsonb,
+  37
+);
+
+-- Replaying the same position is idempotent rather than duplicating an attempt.
+select public.record_study_answer(
+  :'session_id'::uuid,
+  'math-g12-algebra-001',
+  'Algebra',
+  0,
+  '{"selected":0}'::jsonb,
+  true,
+  '{"questionIndex":1,"answers":[0]}'::jsonb,
+  38
+);
+
+do $
+begin
+  if (select count(*) from public.question_attempts where study_session_id = :'session_id'::uuid) <> 1 then
+    raise exception 'Answer replay created a duplicate attempt';
+  end if;
+  if not exists (select 1 from public.study_sessions where id = :'session_id'::uuid and status = 'in_progress' and duration_seconds = 38) then
+    raise exception 'Answer RPC did not persist the recoverable session snapshot';
+  end if;
+end;
+$;
+
+select public.complete_study_session(
+  :'session_id'::uuid,
+  '{"questionIndex":1,"answers":[0],"completed":true}'::jsonb,
+  65, 1, 1
+);
+
+do $
+begin
+  if not exists (
+    select 1 from public.study_sessions
+    where id = :'session_id'::uuid and status = 'completed'
+      and score = 1 and total_questions = 1 and completed_at is not null
+  ) then
+    raise exception 'Session completion summary was not persisted';
+  end if;
+end;
+$;
+
+do $
+begin
+  if (select count(*) from public.learner_subjects) <> 3 thendo $
 begin
   if (select count(*) from public.learner_subjects) <> 3 then
     raise exception 'RPC did not save the de-duplicated subject list';
