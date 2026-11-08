@@ -51,7 +51,8 @@ function syntheticPdf(pageCount) {
     const contentId = pageId + 1
     objects[pageId] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents " + contentId + " 0 R >>"
     const text = "Synthetic Newton law: force equals mass times acceleration."
-    objects[contentId] = "<< /Length " + (text.length + 39) + " >>\nstream\nBT /F1 18 Tf 50 700 Td (" + text + ") Tj ET\nendstream"
+    const stream = "BT /F1 18 Tf 50 700 Td (" + text + ") Tj ET"
+    objects[contentId] = "<< /Length " + Buffer.byteLength(stream) + " >>\nstream\n" + stream + "\nendstream"
   }
   let document = "%PDF-1.4\n"
   const offsets = [0]
