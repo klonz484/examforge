@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('learner can pause, recover, complete Tonight’s 20 and review saved mistakes', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear() })
+  // Playwright gives each test a fresh browser context; do not clear storage on reload.
   await page.goto('/examforge/')
 
   const examDate = new Date()
