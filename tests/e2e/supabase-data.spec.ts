@@ -8,9 +8,11 @@ const emailA = process.env.E2E_TEST_EMAIL_A
 const passwordA = process.env.E2E_TEST_PASSWORD_A
 const emailB = process.env.E2E_TEST_EMAIL_B
 const passwordB = process.env.E2E_TEST_PASSWORD_B
+const emailC = process.env.E2E_TEST_EMAIL_C
+const passwordC = process.env.E2E_TEST_PASSWORD_C
 
 // These tests create and delete real user-owned records. Only run when an explicitly disposable staging project and its test accounts are configured.
-test.skip(process.env.SUPABASE_IS_DISPOSABLE_STAGING !== 'true' || !url || !anonKey || !emailA || !passwordA || !emailB || !passwordB, 'Requires explicitly designated disposable Supabase staging credentials; never run against production.')
+test.skip(process.env.SUPABASE_IS_DISPOSABLE_STAGING !== 'true' || !url || !anonKey || !emailA || !passwordA || !emailB || !passwordB || !emailC || !passwordC, 'Requires explicitly designated disposable Supabase staging credentials; never run against production.')
 
 function client() {
   if (!url || !anonKey) throw new Error('Supabase test configuration is missing.')
@@ -160,7 +162,7 @@ test('signed-in learner can recover a cloud session after sign-out and sign-in',
   const account = client()
   // Account B is reserved for recovery; Account A is used by the preceding
   // data-isolation test, which completes a session for the day.
-  const signedIn = await account.auth.signInWithPassword({ email: emailB!, password: passwordB! })
+  const signedIn = await account.auth.signInWithPassword({ email: emailC!, password: passwordC! })
   expect(signedIn.error).toBeNull()
   const userId = signedIn.data.user!.id
 
@@ -188,8 +190,8 @@ test('signed-in learner can recover a cloud session after sign-out and sign-in',
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /Account \/ sign in/ }).click()
   await page.getByRole('button', { name: /Already have an account\? Sign in/ }).click()
-  await page.getByLabel('Email address').fill(emailB!)
-  await page.getByLabel('Password').fill(passwordB!)
+  await page.getByLabel('Email address').fill(emailC!)
+  await page.getByLabel('Password').fill(passwordC!)
   await page.getByRole('button', { name: 'Sign in' }).click()
 
   await expect(page.getByLabel("Choose today's study subject")).toHaveValue('mathematics')
