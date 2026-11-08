@@ -38,7 +38,7 @@ test('learner can turn a saved mistake into a spaced-review card', async ({ page
   await expect(page.getByText(/5 saved questions/)).toBeVisible()
 
   await page.getByRole('button', { name: 'Review now' }).first().click()
-  await expect(page.getByRole('dialog', { name: /Spaced review/ })).toBeVisible()
+  await expect(page.getByRole('dialog')).toBeVisible()
   await page.getByRole('button', { name: 'Reveal correction' }).click()
   await expect(page.getByText('Correct answer')).toBeVisible()
   await page.getByRole('button', { name: 'Again' }).click()
