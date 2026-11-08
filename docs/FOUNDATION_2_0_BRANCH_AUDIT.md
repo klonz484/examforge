@@ -193,3 +193,13 @@ Manual physical Android accessibility/screen-reader testing, POPIA/legal review,
 
 These require owner/legal/device access or approved live-service configuration. Do not merge PR #3, apply live migrations, deploy Pages, configure production secrets or incur provider costs without separate explicit approval. PR #3 remains draft, open and unmerged.
 
+
+
+## 14. PR #3 integration and latest verification — 8 November 2026
+
+- PR #3 was explicitly approved by the project owner and squash-merged after both checks passed: [Foundation verification #373](https://github.com/klonz484/examforge/actions/runs/42526602544) and [Shared UI verification #201](https://github.com/klonz484/examforge/actions/runs/42526602555), both on head `67eb0d05073b23ef4320ad7b1042f547b17786ec`.
+- The offline PWA reload test was made less brittle by checking stable, visible onboarding content instead of a whitespace-sensitive slice of the initial page text.
+- Merge commit: [`8faa2caf49b12556ba62cba6e4f075301842b69f`](https://github.com/klonz484/examforge/commit/8faa2caf49b12556ba62cba6e4f075301842b69f). [PR #3](https://github.com/klonz484/examforge/pull/3) is merged.
+- The merge did not deploy GitHub Pages, apply live Supabase migrations, configure production secrets, or activate paid providers.
+- The foundation branch is one commit behind the newly updated `main` because PR #3 used squash merge; its content changes remain on the branch. Reconcile branch ancestry before opening another integration PR; do not duplicate or re-port the merged work.
+- Phase 5 remains partial pending owner approval for AI/OCR vendor, privacy/POPIA and data-processing terms, retention/region/subprocessors, hard spend limits and monitoring. Phase 6 manual/device/legal/operational work remains open.
