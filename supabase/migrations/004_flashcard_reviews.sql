@@ -89,8 +89,9 @@ begin
     v_repetitions := v_repetitions + 1;
   else
     v_interval := case
-      when v_repetitions = 0 then 4
-      else greatest(1, round(greatest(1, v_interval) * (v_ease + 0.30))::integer)
+      when v_repetitions = 0 then 3
+      when v_repetitions = 1 then 5
+      else greatest(1, ceil(greatest(1, v_interval) * v_ease * 1.30)::integer)
     end;
     v_repetitions := v_repetitions + 1;
     v_ease := least(3.50, v_ease + 0.15);
