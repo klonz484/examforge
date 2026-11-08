@@ -35,6 +35,12 @@ Deno.serve(async request => {
   if (request.method === "OPTIONS") return json(204, {}, origin)
   if (request.method !== "POST") return json(405, { error: "Method not allowed." }, origin)
 
+  // Server-side kill switch: browser flags are not a security boundary.
+  // Provider activation remains off until privacy, vendor and cost approval.
+  if (Deno.env.get("AI_STUDY_ENABLED") !== "true") {
+    return json(503, { error: "AI provider activation is disabled pending explicit privacy, vendor and cost approval." }, origin)
+  }
+
   const authorization = request.headers.get("Authorization")
   const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]
   if (!bearer) return json(401, { error: "Sign in to use AI study tools." }, origin)
@@ -167,6 +173,7 @@ Deno.serve(async request => {
   try {
     const providerResponse = await fetch(endpointUrl, {
       method: "POST",
+      signal: AbortSignal.timeout(20_000),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
