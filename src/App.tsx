@@ -211,14 +211,16 @@ function App() {
       }
       const { data: attemptRows, error: attemptsError } = await client.from('question_attempts')
         .select('topic,is_correct,attempted_at,study_session_id,question_id,response')
-        .eq('user_id', userId).order('attempted_at', { ascending: true }).limit(500)
+        .eq('user_id', userId).order('attempted_at', { ascending: false }).limit(500)
       if (active && !attemptsError && attemptRows) {
-        setAttempts(attemptRows.map(row => ({
+        const hydratedAttempts = [...attemptRows].reverse().map(row => ({
           topic: String(row.topic), correct: Boolean(row.is_correct), t: new Date(row.attempted_at as string).getTime(),
           sessionId: row.study_session_id ? String(row.study_session_id) : undefined,
           questionId: row.question_id ? String(row.question_id) : undefined,
           response: row.response as { selected: number } | undefined,
-        })))
+        }))
+        setAttempts(hydratedAttempts)
+        save(userStorageKey(userId, 'attempts'), hydratedAttempts)
       }
     })()
     return () => { active = false }
