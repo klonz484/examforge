@@ -94,7 +94,7 @@ jobs:
           version: 2.39.2
       - name: Apply migrations to disposable local Supabase
         run: |
-          supabase start --exclude studio,edge-runtime,logflare,vector,imgproxy,inbucket,analytics
+          supabase start --exclude studio,logflare,vector,imgproxy,inbucket,analytics
           eval "$(supabase status -o env)"
           {
             echo "API_URL=$API_URL"
@@ -112,6 +112,30 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: Create disposable local learner accounts
         run: node tests/setup-local-supabase.mjs
+
+      - name: Serve local Edge Functions with no AI provider secrets
+        run: |
+          eval "$(supabase status -o env)"
+          cat > "$RUNNER_TEMP/functions.env" <<EOF
+          SUPABASE_URL=$API_URL
+          SUPABASE_ANON_KEY=$ANON_KEY
+          SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
+          AI_ALLOWED_ORIGINS=http://127.0.0.1:4173
+          EOF
+          supabase functions serve --env-file "$RUNNER_TEMP/functions.env" --no-verify-jwt > "$RUNNER_TEMP/functions.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/functions.pid"
+          for attempt in $(seq 1 45); do
+            code="$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST \
+              -H 'Content-Type: application/json' --data '{}' \
+              "$API_URL/functions/v1/extract-study-note" || true)"
+            if [ "$code" = "401" ]; then
+              echo "Local extraction function is serving; provider secrets are intentionally absent."
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/functions.log"
+          exit 1
 
       - name: TypeScript and production build
         run: npm run build
