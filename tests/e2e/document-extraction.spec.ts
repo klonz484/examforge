@@ -1,8 +1,34 @@
 import { test, expect } from '@playwright/test'
 import { cleanExtractedText, hasPdfMagicBytes, hasUsableStudyText, isAllowedNoteMimeType, isOwnedNoteStoragePath } from '../../supabase/functions/_shared/document-validation'
 import { parseQuestionDraft } from '../../supabase/functions/_shared/ai-validation'
+import { isSupportedAiStudyContext } from '../../supabase/functions/_shared/ai-caps-metadata'
+import { getPracticeTopics } from '../../src/data/practiceQuestions'
 
 const sourceText = 'Newton’s second law states that the net force acting on an object is equal to its mass multiplied by its acceleration.'
+
+test('AI subject, grade and topic metadata matches only supported starter practice sets', () => {
+  const subjects = [
+    { id: 'mathematics', names: ['Mathematics'] },
+    { id: 'physical-science', names: ['Physical Science', 'Physical Sciences'] },
+  ] as const
+
+  for (const subject of subjects) {
+    for (const grade of [10, 11, 12]) {
+      const topics = getPracticeTopics(subject.id, grade)
+      expect(topics.length).toBeGreaterThan(0)
+      for (const name of subject.names) {
+        for (const topic of topics) {
+          expect(isSupportedAiStudyContext(grade, subject.id, name, topic)).toBe(true)
+        }
+      }
+    }
+  }
+
+  expect(isSupportedAiStudyContext(12, 'mathematics', 'Physical Sciences', 'Algebra')).toBe(false)
+  expect(isSupportedAiStudyContext(10, 'mathematics', 'Mathematics', 'Calculus')).toBe(false)
+  expect(isSupportedAiStudyContext(13, 'mathematics', 'Mathematics', 'Algebra')).toBe(false)
+  expect(isSupportedAiStudyContext(12, 'unknown-subject', 'Unknown', 'Algebra')).toBe(false)
+})
 
 test('private document validation rejects invalid paths, MIME types, and PDF signatures', () => {
   expect(isOwnedNoteStoragePath('user-a', 'user-a/notes-123.pdf')).toBe(true)
