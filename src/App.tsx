@@ -4,17 +4,13 @@ import type { User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from './supabase'
 import { Button, Dialog, Navigation, TextField } from './components/ui'
 import { CAPS_SUBJECTS, searchCapsSubjects, type CapsSubject } from './data/capsSubjects'
-import { PRACTICE_QUESTIONS, selectPracticeQuestions, type PracticeQuestion } from './data/practiceQuestions'
+import { getPracticeTopics, PRACTICE_QUESTIONS, selectPracticeQuestions, type PracticeQuestion } from './data/practiceQuestions'
 import { CAPS_ROADMAPS } from './data/capsRoadmaps'
 import { OFFICIAL_PAPER_ARCHIVES } from './data/examArchives'
 import { isFlashcardDue, scheduleFlashcardReview, type FlashcardReviewState, type ReviewGrade } from './data/spacedRepetition'
 import { analyseProgress } from './data/progressIntelligence'
 
 type Tab = 'Dashboard' | 'Past Papers' | 'Upload Notes' | 'Progress'
-const TOPICS: Record<string, string[]> = {
-  'Physical Science': ['Mechanics', 'Electricity', 'Waves', 'Chemical Change', 'Organic Chemistry', 'Stoichiometry', 'Momentum & Impulse', 'Energy & Work'],
-  'Mathematics': ['Algebra', 'Functions', 'Trigonometry', 'Calculus', 'Euclidean Geometry', 'Analytical Geometry', 'Sequences & Series', 'Finance & Growth'],
-}
 const REWIND_SECONDS = 20 * 60
 const ALLOWED_NOTE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 const MAX_NOTE_BYTES = 10 * 1024 * 1024
@@ -96,12 +92,12 @@ function App() {
   const rewindDone = doneDates.includes(today)
   const todaySession = sessions.find(x => x.date === today)
   const streak = computeStreak(doneDates)
-  const topics = TOPICS[subject] ?? TOPICS['Physical Science']
   const enrolledSubjects = selectedSubjectIds.map(id => CAPS_SUBJECTS.find(item => item.id === id)).filter((item): item is CapsSubject => Boolean(item))
   const dashboardSubjects = enrolledSubjects.slice(0, 7)
   const catalogueResults = searchCapsSubjects(catalogueSearch, Number(grade) as 10 | 11 | 12).filter(item => item.status !== 'pathway-parent')
   const activeSubjectId = enrolledSubjects.find(item => item.name === subject || (item.id === 'physical-science' && (subject === 'Physical Science' || subject === 'Physical Sciences')))?.id ?? selectedSubjectIds[0] ?? 'physical-science'
-  const hasStarterQuestionBank = ['Mathematics', 'Physical Science', 'Physical Sciences'].includes(subject)
+  const topics = getPracticeTopics(activeSubjectId, Number(grade))
+  const hasStarterQuestionBank = topics.length > 0
   const daysLeft = examDate ? Math.max(0, Math.ceil((new Date(examDate + 'T23:59:59').getTime() - Date.now()) / 86400000)) : null
   const currentQuestion = sessionQs[questionIndex]
   const score = answers.reduce((n, a, i) => n + (sessionQs[i] && a === sessionQs[i].answer ? 1 : 0), 0)
