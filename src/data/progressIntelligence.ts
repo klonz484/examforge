@@ -1,4 +1,17 @@
-export type ProgressAttempt = { topic: string; correct: boolean; t: number }
+export type ProgressAttempt = {
+  topic: string
+  correct: boolean
+  t: number
+  questionId?: string
+  subjectId?: string | null
+  grade?: number | null
+}
+
+export type ProgressQuestionContext = {
+  id: string
+  subjectId: string
+  grade: number
+}
 
 export type TopicEvidence = {
   topic: string
@@ -18,6 +31,27 @@ export type ProgressInsight = {
   previousAttempts: number
   trend: 'improving' | 'declining' | 'steady' | 'insufficient-data'
   explanation: string
+}
+
+/**
+ * Only score attempts whose subject and grade are attributable.
+ * Historical rows with null context may be resolved from their stable question ID.
+ * Topic text alone is deliberately never used to infer a subject or grade.
+ */
+export function scopeProgressAttempts(
+  attempts: ProgressAttempt[],
+  subjectId: string,
+  grade: number,
+  knownQuestions: ProgressQuestionContext[] = [],
+): ProgressAttempt[] {
+  const contextByQuestionId = new Map(knownQuestions.map(question => [question.id, question]))
+  return attempts.flatMap(attempt => {
+    const question = attempt.questionId ? contextByQuestionId.get(attempt.questionId) : undefined
+    const resolvedSubject = attempt.subjectId ?? question?.subjectId
+    const resolvedGrade = attempt.grade ?? question?.grade
+    if (resolvedSubject !== subjectId || resolvedGrade !== grade) return []
+    return [{ ...attempt, subjectId: resolvedSubject, grade: resolvedGrade }]
+  })
 }
 
 function accuracyOf(rows: ProgressAttempt[]): number | null {
