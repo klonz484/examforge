@@ -18,7 +18,8 @@ test('CAPS roadmaps switch grade and subject and link to the matching DBE ATP', 
 
   await page.getByLabel('Roadmap grade').selectOption('10')
   await page.getByLabel('Roadmap subject').selectOption('mathematics')
-  await expect(page.getByText('Algebraic expressions', { exact: true })).toBeVisible()
+  await expect(page.locator('.roadmap-source')).toContainText('DBE Mathematics Grade 10 Annual Teaching Plan (2023/24)')
+  await expect(page.locator('.roadmap-topic-list')).toContainText('Algebraic expressions')
   const grade10Math = page.getByRole('link', { name: 'Open official ATP source' })
   await expect(grade10Math).toHaveAttribute('href', /Grade%2010.*Maths|Gr%2010%20Maths/i)
 
@@ -45,8 +46,9 @@ test('official DBE paper archive cards are provenance-labelled and searchable by
   await expect(page.locator('.archive-card')).toHaveCount(2)
   await page.getByRole('button', { name: '2025', exact: true }).click()
   await expect(page.locator('.archive-card')).toHaveCount(4)
+  await page.getByRole('button', { name: 'All', exact: true }).click()
   await page.getByRole('button', { name: 'Physical Science', exact: true }).click()
-  await expect(page.locator('.archive-card')).toHaveCount(2)
+  await expect(page.locator('.archive-card')).toHaveCount(4)
   await expect(page.locator('.archive-card').first()).toContainText('Physical Sciences')
   await expect(page.locator('.archive-provenance').first()).toContainText('Department of Basic Education')
 })
