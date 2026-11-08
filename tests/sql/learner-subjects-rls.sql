@@ -13,6 +13,15 @@ as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$
 grant usage on schema auth to authenticated;
 grant execute on function auth.uid() to authenticated;
 
+-- Existing application table required by the later AI Academy migration.
+create table public.generated_questions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  subject text not null,
+  topic text not null,
+  review_status text not null default 'pending'
+);
+
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   grade int check (grade between 10 and 12),
