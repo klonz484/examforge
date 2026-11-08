@@ -503,6 +503,48 @@ function App() {
     setQuestionIndex(i => i + 1); setSelected(null)
   }
 
+  async function rateFlashcard(card: typeof REVISION_FLASHCARDS[number], rating: FlashcardRating) {
+    const gradeCode: Record<FlashcardRating, number> = { again: 0, hard: 1, good: 2, easy: 3 }
+    let nextReview: FlashcardReview
+    if (user && supabase) {
+      const { data, error } = await supabase.rpc('review_flashcard', {
+        p_question_id: card.questionId,
+        p_grade: gradeCode[rating],
+      })
+      if (error) {
+        console.warn('Cloud flashcard review did not sync:', error.message)
+        nextReview = scheduleFlashcardReview(card.questionId, flashcardReviews[card.questionId], rating)
+        setToast('Review saved on this device only. Account sync will work after the spaced-review database update is applied.')
+      } else {
+        const row = (Array.isArray(data) ? data[0] : data) as {
+          question_id: string; repetitions: number; interval_days: number;
+          ease_factor: number; next_review_at: string; last_reviewed_at: string | null;
+        } | null
+        if (!row) {
+          setToast('The spaced-review service returned no saved review. Please try again.')
+          return
+        }
+        nextReview = {
+          flashcardId: row.question_id,
+          repetitions: Number(row.repetitions),
+          intervalDays: Number(row.interval_days),
+          easeFactor: Number(row.ease_factor),
+          dueAt: new Date(row.next_review_at).toLocaleDateString('en-CA'),
+          lastReviewedAt: row.last_reviewed_at ?? new Date().toISOString(),
+          rating,
+        }
+        setToast(`Review saved. Next review: ${nextReview.dueAt}.`)
+      }
+    } else {
+      nextReview = scheduleFlashcardReview(card.questionId, flashcardReviews[card.questionId], rating)
+      setToast(`Review saved. Next review: ${nextReview.dueAt}.`)
+    }
+    const next = { ...flashcardReviews, [card.questionId]: nextReview }
+    setFlashcardReviews(next)
+    save(userStorageKey(user?.id ?? null, 'flashcard-reviews'), next)
+    setFlashcardRevealed(false)
+  }
+
   function pickNotes(files: File[]) {
     const ok: File[] = []; const problems: string[] = []
     for (const f of files) {
