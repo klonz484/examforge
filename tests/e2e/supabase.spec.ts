@@ -69,6 +69,8 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.locator('input[type="date"]').fill(dateValue)
   const mathematicsOption = page.getByRole('button', { name: 'Mathematics ATP-listed', exact: true })
   if (await mathematicsOption.getAttribute('aria-pressed') !== 'true') await mathematicsOption.click()
+  const physicalScienceOption = page.getByRole('button', { name: 'Physical Sciences ATP-listed', exact: true })
+  if (await physicalScienceOption.getAttribute('aria-pressed') !== 'true') await physicalScienceOption.click()
   // Select Mathematics as the first study focus before choosing its topics.
   await page.getByLabel('Choose your first study focus').selectOption('mathematics')
   const selectedTopics = page.locator('.topic-pills .pill.selected')
