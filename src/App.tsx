@@ -462,6 +462,32 @@ function App() {
     if (!finalSnapshot) return
     if (user && supabase) {
       if (!activeSessionId) { setToast('This session has no saved account record. Keep it open and retry.'); return }
+      const queuedForSession = pendingAnswerWrites.filter(item => item.sessionId === activeSessionId)
+      if (queuedForSession.length) {
+        if (!navigator.onLine) {
+          setToast('Reconnect to sync your saved answers before completing this session.')
+          return
+        }
+        for (const item of queuedForSession) {
+          const { error: syncError } = await supabase.rpc('record_study_answer', {
+            p_session_id: item.sessionId,
+            p_question_id: item.questionId,
+            p_topic: item.topic,
+            p_question_position: item.questionPosition,
+            p_response: item.response,
+            p_is_correct: item.isCorrect,
+            p_session_state: item.sessionState,
+            p_duration_seconds: item.durationSeconds,
+          })
+          if (syncError) {
+            setToast('Some answers are still waiting to sync. Keep this session open and retry.')
+            return
+          }
+        }
+        const remaining = pendingAnswerWrites.filter(item => item.sessionId !== activeSessionId)
+        setPendingAnswerWrites(remaining)
+        save(userStorageKey(user.id, 'pending-answer-sync'), remaining)
+      }
       const { error } = await supabase.rpc('complete_study_session', {
         p_session_id: activeSessionId, p_session_state: { ...finalSnapshot, completed: true },
         p_duration_seconds: seconds, p_score: finalScore, p_total_questions: sessionQs.length,
@@ -501,9 +527,29 @@ function App() {
         p_session_state: snapshot, p_duration_seconds: seconds,
       })
       if (error) {
-        console.error('Answer persistence failed:', error.message)
-        setToast('Answer not synced. Please check your connection and select your answer again before moving on.')
-        return
+        const networkFailure = !navigator.onLine || /fetch|network|timeout|offline|connection/i.test(error.message)
+        if (!networkFailure) {
+          console.error('Answer persistence failed:', error.message)
+          setToast('Your answer could not be saved. Please retry before moving on.')
+          return
+        }
+        const queued: PendingAnswerSync = {
+          sessionId: activeSessionId,
+          questionId: currentQuestion.id,
+          topic: currentQuestion.topic,
+          questionPosition: questionIndex,
+          response: { selected: i },
+          isCorrect: correct,
+          sessionState: snapshot,
+          durationSeconds: seconds,
+        }
+        const nextQueue = [
+          ...pendingAnswerWrites.filter(item => !(item.sessionId === queued.sessionId && item.questionPosition === queued.questionPosition)),
+          queued,
+        ]
+        setPendingAnswerWrites(nextQueue)
+        save(userStorageKey(user.id, 'pending-answer-sync'), nextQueue)
+        setToast('You are offline. Your answer is saved on this device and will sync when the connection returns.')
       }
     }
     setSelected(i); setAnswers(nextAnswers)
@@ -530,6 +576,10 @@ function App() {
     setRecoverableSession(snapshot); setRewindOpen(false)
   }
   async function abandonSession() {
+    if (activeSessionId && pendingAnswerWrites.some(item => item.sessionId === activeSessionId)) {
+      setToast('Reconnect and sync your saved answers before abandoning this session.')
+      return
+    }
     if (user && supabase && activeSessionId) {
       const { error } = await supabase.from('study_sessions').update({
         status: 'abandoned', session_state: makeSessionSnapshot(), duration_seconds: seconds,
