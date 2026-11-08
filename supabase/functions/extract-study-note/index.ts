@@ -35,6 +35,20 @@ function uuid(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
 
+async function withTimeout<T>(operation: Promise<T>, milliseconds: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("PDF extraction exceeded the time limit.")), milliseconds)
+      }),
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
 Deno.serve(async request => {
   const origin = request.headers.get("Origin")
   if (request.method === "OPTIONS") return response(204, null, origin)
@@ -145,10 +159,7 @@ Deno.serve(async request => {
       throw new Error(`The PDF must contain between 1 and ${MAX_PDF_PAGES} pages.`)
     }
 
-    const extraction = await Promise.race([
-      extractText(pdf, { mergePages: true }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("PDF extraction exceeded the time limit.")), 15_000)),
-    ])
+    const extraction = await withTimeout(extractText(pdf, { mergePages: true }), 15_000)
     const fullText = typeof extraction.text === "string" ? extraction.text : extraction.text.join("\n")
     const extractedText = cleanExtractedText(fullText, MAX_EXTRACTED_TEXT_CHARS)
 
