@@ -120,6 +120,7 @@ jobs:
           SUPABASE_URL=$API_URL
           SUPABASE_ANON_KEY=$ANON_KEY
           SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
+          AI_STUDY_ENABLED=false
           AI_ALLOWED_ORIGINS=http://127.0.0.1:4173
           EOF
           supabase functions serve --env-file "$RUNNER_TEMP/functions.env" --no-verify-jwt > "$RUNNER_TEMP/functions.log" 2>&1 &
