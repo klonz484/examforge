@@ -35,7 +35,7 @@ test('CAPS roadmaps switch grade and subject and link to the matching DBE ATP', 
 
 test('official DBE paper archive cards are provenance-labelled and searchable by year and subject', async ({ page }) => {
   await enterLearnerDashboard(page)
-  await expect(page.getByText('6 verified archive entries')).toBeVisible()
+  await expect(page.getByText('8 verified archive entries')).toBeVisible()
   await expect(page.locator('.archive-card')).toHaveCount(8)
   for (const link of await page.locator('.archive-card a').all()) {
     await expect(link).toHaveAttribute('href', /^https:\/\/www\.education\.gov\.za\//)
