@@ -68,7 +68,7 @@ try {
   const equationResponse = await postOcr(equationImage, "eng")
   if (!equationResponse.ok) throw new Error("Worker equation OCR failed: " + await equationResponse.text())
   const equationPayload = await equationResponse.json()
-  if (!/f\\s*=\\s*m\\s*x\\s*a/i.test(equationPayload.equationText.replace(/\\s+/g, " "))) {
+  if (!/f\s*=\s*m\s*x\s*a/i.test(equationPayload.equationText.replace(/\s+/g, " "))) {
     throw new Error("Equation-oriented pass did not preserve the synthetic F = m x a formula: " + JSON.stringify(equationPayload))
   }
   if (!["equation-symbols-detected-best-effort", "no-equation-symbols-detected"].includes(equationPayload.equationStatus)) {
@@ -77,7 +77,7 @@ try {
 
   const tooLarge = await fetch(base + "/ocr", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "image/png" }, body: Buffer.alloc(10 * 1024 * 1024 + 1) })
   if (tooLarge.status !== 413) throw new Error("Worker must reject files larger than 10 MiB.")
-  process.stdout.write("Synthetic multilingual and equation-oriented Tesseract worker smoke tests passed.\\n")
+  process.stdout.write("Synthetic multilingual and equation-oriented Tesseract worker smoke tests passed.\n")
 } finally {
   worker.kill("SIGTERM")
 }
