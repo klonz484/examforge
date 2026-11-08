@@ -88,6 +88,310 @@ function App() {
   const [aiSourceText, setAiSourceText] = useState('')
   const [aiGenerationStatus, setAiGenerationStatus] = useState('')
   const [aiDraft, setAiDraft] = useState<AIStudyDraft | null>(null)
+  const [aiDraftHistory, setAiDraftHistory] = useState<AIStudyDraft[]>([])
+  const [aiBusy, setAiBusy] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [userEmail, setUserEmail] = useState('')
+  const [authOpen, setAuthOpen] = useState(false)
+  const [authMode, setAuthMode] = useState<'in' | 'up'>('up')
+  const [password, setPassword] = useState('')
+  const [toast, setToast] = useState('')
+  const [onboarded, setOnboarded] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(true)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    // Keep the application and shared UI theme attributes in sync.
+    document.documentElement.dataset.theme = theme
+    document.documentElement.dataset.uiTheme = theme
+  }, [theme])
+
+  const today = localDate()
+  const doneDates = useMemo(() => Array.from(new Set([...sessions.map(x => x.date), ...remoteDates])), [sessions, remoteDates])
+  const rewindDone = doneDates.includes(today)
+  const todaySession = sessions.find(x => x.date === today)
+  const streak = computeStreak(doneDates)
+  const enrolledSubjects = selectedSubjectIds.map(id => CAPS_SUBJECTS.find(item => item.id === id)).filter((item): item is CapsSubject => Boolean(item))
+  const dashboardSubjects = enrolledSubjects.slice(0, 7)
+  const catalogueResults = searchCapsSubjects(catalogueSearch, Number(grade) as 10 | 11 | 12).filter(item => item.status !== 'pathway-parent')
+  const activeSubjectId = enrolledSubjects.find(item => item.name === subject || (item.id === 'physical-science' && (subject === 'Physical Science' || subject === 'Physical Sciences')))?.id ?? selectedSubjectIds[0] ?? 'physical-science'
+  const topics = getPracticeTopics(activeSubjectId, Number(grade))
+  const hasStarterQuestionBank = topics.length > 0
+  const daysLeft = examDate ? Math.max(0, Math.ceil((new Date(examDate + 'T23:59:59').getTime() - Date.now()) / 86400000)) : null
+  const currentQuestion = sessionQs[questionIndex]
+  const score = answers.reduce((n, a, i) => n + (sessionQs[i] && a === sessionQs[i].answer ? 1 : 0), 0)
+  const filteredArchives = useMemo(() => OFFICIAL_PAPER_ARCHIVES.filter(item =>
+    (filter === 'All' || (filter === 'Physical Science' ? item.subjectId === 'physical-science' : filter === 'Mathematics' ? item.subjectId === 'mathematics' : String(item.year) === filter)) &&
+    (item.subjectName + item.year + item.sitting + item.sourceTitle).toLowerCase().includes(search.toLowerCase())
+  ), [filter, search])
+  const activeRoadmap = CAPS_ROADMAPS.find(item => item.grade === Number(roadmapGrade) && item.subjectId === roadmapSubjectId) ?? null
+  const subjectAttempts = attempts.filter(a => topics.includes(a.topic))
+  const masteryFor = (t: string) => { const rows = attempts.filter(a => a.topic === t).slice(-20); return rows.length ? Math.round(100 * rows.filter(r => r.correct).length / rows.length) : null }
+  const accuracy = subjectAttempts.length ? Math.round(100 * subjectAttempts.filter(a => a.correct).length / subjectAttempts.length) : null
+  const mistakeQuestions = useMemo(() => {
+    const ids = Array.from(new Set(attempts.filter(item => !item.correct && item.questionId).map(item => item.questionId!)))
+    return ids.map(id => PRACTICE_QUESTIONS.find(question => question.id === id)).filter((item): item is PracticeQuestion => Boolean(item))
+      .filter(question => (question.prompt + question.topic).toLowerCase().includes(mistakeSearch.toLowerCase()))
+  }, [attempts, mistakeSearch])
+  const dueMistakeCount = mistakeQuestions.filter(question => isFlashcardDue(flashcardReviews[question.id])).length
+  const progressInsight = analyseProgress(subjectAttempts, topics)
+
+  // Rewind timer: counts active, visible time only.
+  useEffect(() => {
+    if (!rewindOpen) return
+    const id = window.setInterval(() => { if (!document.hidden) setSeconds(x => x + 1) }, 1000)
+    return () => window.clearInterval(id)
+  }, [rewindOpen])
+
+  // Keep an account-scoped local recovery copy current, including guest sessions.
+  useEffect(() => {
+    if (!sessionQs.length || !sessionStartedAt || (!rewindOpen && !recoverableSession)) return
+    const snapshot: SessionSnapshot = {
+      id: activeSessionId ?? undefined, subject, subjectId: activeSubjectId,
+      grade: Number(grade), questions: sessionQs, questionIndex, answers, seconds, startedAt: sessionStartedAt, updatedAt: new Date().toISOString(),
+    }
+    save(userStorageKey(user?.id ?? null, 'active-session'), snapshot)
+  }, [activeSessionId, activeSubjectId, answers, grade, questionIndex, recoverableSession, rewindOpen, seconds, sessionQs, sessionStartedAt, subject, user?.id])
+  useEffect(() => { if (!toast) return; const id = window.setTimeout(() => setToast(''), 3200); return () => window.clearTimeout(id) }, [toast])
+
+  // Auth state.
+  useEffect(() => {
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null))
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null))
+    return () => data.subscription.unsubscribe()
+  }, [])
+
+  // Every account gets an isolated browser-storage namespace. Guests always start from defaults.
+  useEffect(() => {
+    const userId = user?.id ?? null
+    setTab('Dashboard'); setSessionQs([]); setQuestionIndex(0); setSelected(null); setAnswers([])
+    setRewindOpen(false); setSeconds(0); setRemoteDates([]); setNotes([]); setNoteStatus(''); setActiveSessionId(null); setSessionStartedAt(''); setSessionSummary(null)
+    setRecoverableSession(load<SessionSnapshot | null>(userStorageKey(userId, 'active-session'), null))
+    setSessions(load<Session[]>(userStorageKey(userId, 'sessions'), []))
+    setAttempts(load<Attempt[]>(userStorageKey(userId, 'attempts'), []))
+    setFlashcardReviews(load<Record<string, FlashcardReviewState>>(userStorageKey(userId, 'flashcard-reviews'), {}))
+    setMistakeSearch(''); setActiveReviewId(null); setFlashcardRevealed(false)
+    setWeak([]); setGrade('12'); setSubject('Physical Science'); setSelectedSubjectIds(['physical-science']); setCatalogueSearch(''); setAllSubjectsOpen(false); setExamDate(dateAfterDays(20))
+    setOnboarded(false); setShowOnboarding(true)
+    if (!userId) {
+      const guestProfile = load<Profile | null>(userStorageKey(null, 'profile'), null)
+      const guestSubjects = load<string[]>(userStorageKey(null, 'subjects'), [])
+      if (guestProfile) {
+        setGrade(guestProfile.grade); setExamDate(guestProfile.examDate); setSubject(guestProfile.subject); setWeak(guestProfile.weak)
+        setSelectedSubjectIds(guestSubjects.length ? guestSubjects : [guestProfile.subject === 'Mathematics' ? 'mathematics' : 'physical-science'])
+        setOnboarded(true); setShowOnboarding(false)
+      }
+      return
+    }
+    if (!supabase) return
+    const client = supabase
+    let active = true
+    ;(async () => {
+      const { data: profile, error: profileError } = await client.from('profiles')
+        .select('grade,exam_date,primary_subject,weak_topics').eq('id', userId).maybeSingle()
+      if (!active) return
+      if (profileError) { console.error('Profile load failed:', profileError.message); return }
+      const { data: subjectRows, error: subjectsError } = await client.from('learner_subjects')
+        .select('subject_id').eq('user_id', userId).order('created_at', { ascending: true })
+      if (!active) return
+      const subjectTableUnavailable = subjectsError?.code === '42P01' || subjectsError?.code === 'PGRST205'
+      if (subjectsError && !subjectTableUnavailable) {
+        console.error('Subject library load failed:', subjectsError.message)
+        setToast('Could not load your saved subjects. Please refresh and try again.')
+        return
+      }
+      if (subjectTableUnavailable) console.info('Learner subject migration is not installed yet; using the legacy profile subject until it is applied.')
+      const remoteSubjectIds = (subjectRows ?? []).map(row => row.subject_id as string)
+      if (profile) {
+        const p: Profile = { grade: String(profile.grade ?? '12'), examDate: profile.exam_date ?? dateAfterDays(20), subject: profile.primary_subject ?? 'Physical Science', weak: profile.weak_topics ?? [] }
+        setGrade(p.grade); setExamDate(p.examDate); setSubject(p.subject); setWeak(p.weak)
+        const ids = remoteSubjectIds.length ? remoteSubjectIds : [p.subject === 'Mathematics' ? 'mathematics' : 'physical-science']
+        setSelectedSubjectIds(ids)
+        save(userStorageKey(userId, 'subjects'), ids)
+        setOnboarded(true); setShowOnboarding(false)
+        save(userStorageKey(userId, 'profile'), p)
+      } else {
+        const localProfile = load<Profile | null>(userStorageKey(userId, 'profile'), null)
+        if (localProfile) {
+          setGrade(localProfile.grade); setExamDate(localProfile.examDate); setSubject(localProfile.subject); setWeak(localProfile.weak)
+          setSelectedSubjectIds(remoteSubjectIds.length ? remoteSubjectIds : [localProfile.subject === 'Mathematics' ? 'mathematics' : 'physical-science'])
+          setOnboarded(true); setShowOnboarding(false)
+        }
+      }
+      const { data: rows, error: sessionsError } = await client.from('study_sessions')
+        .select('id,subject,subject_id,grade,status,session_state,score,total_questions,duration_seconds,completed_at,started_at,last_activity_at')
+        .eq('user_id', userId).order('last_activity_at', { ascending: false }).limit(120)
+      if (!active) return
+      if (!sessionsError && rows) {
+        const completed = rows.filter(r => r.status === 'completed' && r.completed_at)
+        setRemoteDates(completed.map(r => localDate(new Date(r.completed_at as string))))
+        setSessions(completed.map(r => ({ date: localDate(new Date(r.completed_at as string)), score: Number(r.score ?? 0), seconds: Number(r.duration_seconds ?? 0), subject: String(r.subject) })))
+        const inProgress = rows.find(r => r.status === 'in_progress' && r.session_state)
+        if (inProgress) {
+          const remoteSnapshot = inProgress.session_state as unknown as SessionSnapshot
+          const localSnapshot = load<SessionSnapshot | null>(userStorageKey(userId, 'active-session'), null)
+          const remoteUpdated = new Date(String(inProgress.last_activity_at)).getTime()
+          const localUpdated = localSnapshot?.id === String(inProgress.id) ? new Date(localSnapshot.updatedAt ?? 0).getTime() : 0
+          const snapshot = localUpdated > remoteUpdated ? localSnapshot! : { ...remoteSnapshot, id: String(inProgress.id), seconds: Number(inProgress.duration_seconds ?? remoteSnapshot.seconds ?? 0) }
+          setRecoverableSession(snapshot)
+          save(userStorageKey(userId, 'active-session'), snapshot)
+        } else {
+          setRecoverableSession(null)
+          localStorage.removeItem(userStorageKey(userId, 'active-session'))
+        }
+      }
+      const { data: attemptRows, error: attemptsError } = await client.from('question_attempts')
+        .select('topic,is_correct,attempted_at,study_session_id,question_id,response')
+        .eq('user_id', userId).order('attempted_at', { ascending: false }).limit(500)
+      if (active && !attemptsError && attemptRows) {
+        const hydratedAttempts = [...attemptRows].reverse().map(row => ({
+          topic: String(row.topic), correct: Boolean(row.is_correct), t: new Date(row.attempted_at as string).getTime(),
+          sessionId: row.study_session_id ? String(row.study_session_id) : undefined,
+          questionId: row.question_id ? String(row.question_id) : undefined,
+          response: row.response as { selected: number } | undefined,
+        }))
+        setAttempts(hydratedAttempts)
+        save(userStorageKey(userId, 'attempts'), hydratedAttempts)
+      }
+      const { data: reviewRows, error: reviewError } = await client.from('flashcard_reviews')
+        .select('question_id,interval_days,ease_factor,repetitions,last_grade,last_reviewed_at,next_review_at,updated_at')
+        .eq('user_id', userId)
+      if (!active) return
+      const reviewTableMissing = reviewError?.code === '42P01' || reviewError?.code === 'PGRST205'
+      if (reviewError && !reviewTableMissing) {
+        console.error('Flashcard review sync failed:', reviewError.message)
+        setToast('Could not load your saved review schedule. Local mistakes are still available.')
+      } else if (!reviewError && reviewRows) {
+        const byId = Object.fromEntries(reviewRows.map(row => [String(row.question_id), {
+          question_id: String(row.question_id),
+          interval_days: Number(row.interval_days),
+          ease_factor: Number(row.ease_factor),
+          repetitions: Number(row.repetitions),
+          last_grade: row.last_grade == null ? null : Number(row.last_grade) as ReviewGrade,
+          last_reviewed_at: row.last_reviewed_at as string | null,
+          next_review_at: String(row.next_review_at),
+          updated_at: String(row.updated_at),
+        }])) as Record<string, FlashcardReviewState>
+        setFlashcardReviews(byId)
+        save(userStorageKey(userId, 'flashcard-reviews'), byId)
+      }
+      const { data: draftRows, error: draftRowsError } = await client.from('generated_questions')
+        .select('id,prompt,options,answer_key,explanation,confidence,grade,subject_id,subject,topic,source_label,provenance,review_status')
+        .eq('user_id', userId).order('created_at', { ascending: false }).limit(50)
+      if (active && !draftRowsError && draftRows) {
+        const rows: AIStudyDraft[] = draftRows.map(row => ({
+          id: String(row.id),
+          prompt: String(row.prompt),
+          options: Array.isArray(row.options) ? row.options.map((option: unknown) => String(option)) : [],
+          answerIndex: Number((row.answer_key as { correct_index?: number } | null)?.correct_index ?? -1),
+          explanation: String(row.explanation ?? ''),
+          grade: Number(row.grade ?? 12),
+          subjectId: String(row.subject_id ?? ''),
+          subjectName: String(row.subject ?? ''),
+          topic: String(row.topic ?? ''),
+          confidence: Number(row.confidence ?? 0),
+          sourceLabel: String(row.source_label ?? 'AI-generated practice draft'),
+          provenance: String(row.provenance ?? 'AI-generated content; not official DBE material.'),
+          reviewStatus: (['pending','approved','rejected'].includes(String(row.review_status)) ? String(row.review_status) : 'pending') as AIStudyDraft['reviewStatus'],
+        }))
+        setAiDraftHistory(rows)
+      } else if (draftRowsError && !['42P01','PGRST205'].includes(draftRowsError.code ?? '')) {
+        console.warn('AI draft library could not be loaded:', draftRowsError.message)
+      }
+    })()
+    return () => { active = false }
+  }, [user?.id]) Activity, Atom, BookOpen, CalendarDays, Check, ChevronRight, Clock3, FileText, Flame, FlaskConical, Home, LockKeyhole, LogOut, Menu, Plus, Search, Settings2, ShieldCheck, Sigma, Sun, Moon, Target, Upload, UserRound, X } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
+import { isSupabaseConfigured, supabase } from './supabase'
+import { Button, Dialog, Navigation, TextField } from './components/ui'
+import { CAPS_SUBJECTS, searchCapsSubjects, type CapsSubject } from './data/capsSubjects'
+import { getPracticeTopics, PRACTICE_QUESTIONS, selectPracticeQuestions, type PracticeQuestion } from './data/practiceQuestions'
+import { CAPS_ROADMAPS } from './data/capsRoadmaps'
+import { OFFICIAL_PAPER_ARCHIVES } from './data/examArchives'
+import { isFlashcardDue, scheduleFlashcardReview, type FlashcardReviewState, type ReviewGrade } from './data/spacedRepetition'
+import { analyseProgress } from './data/progressIntelligence'
+
+type Tab = 'Dashboard' | 'Past Papers' | 'Upload Notes' | 'Progress'
+const REWIND_SECONDS = 20 * 60
+const ALLOWED_NOTE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+const MAX_NOTE_BYTES = 10 * 1024 * 1024
+
+type Session = { date: string; score: number; seconds: number; subject: string }
+type Attempt = { topic: string; correct: boolean; t: number; sessionId?: string; questionId?: string; response?: { selected: number } }
+type SessionSnapshot = { id?: string; updatedAt?: string; subject: string; subjectId: string; grade: number; questions: PracticeQuestion[]; questionIndex: number; answers: number[]; seconds: number; startedAt: string }
+type SessionSummary = { session: Session; questions: PracticeQuestion[]; answers: number[] }
+type Profile = { grade: string; examDate: string; subject: string; weak: string[] }
+type AIStudyDraft = {
+  id: string
+  prompt: string
+  options: string[]
+  answerIndex: number
+  explanation: string
+  grade: number
+  subjectId: string
+  subjectName: string
+  topic: string
+  confidence: number
+  sourceLabel: string
+  provenance: string
+  reviewStatus: 'pending' | 'approved' | 'rejected'
+}
+
+function load<T>(key: string, fallback: T): T {
+  try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as T) : fallback } catch { return fallback }
+}
+function save(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* storage full or blocked */ } }
+function localDate(d = new Date()) { return d.toLocaleDateString('en-CA') }
+function dateAfterDays(days: number) { const d = new Date(); d.setDate(d.getDate() + days); return localDate(d) }
+function userStorageKey(userId: string | null, item: string) { return `ef:${userId ?? 'guest'}:${item}` }
+function fmt(total: number) { return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}` }
+function computeStreak(dates: string[]) {
+  const set = new Set(dates)
+  const d = new Date()
+  if (!set.has(localDate(d))) d.setDate(d.getDate() - 1)
+  let n = 0
+  while (set.has(localDate(d))) { n++; d.setDate(d.getDate() - 1) }
+  return n
+}
+function App() {
+  const [tab, setTab] = useState<Tab>('Dashboard')
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => load<'dark' | 'light'>('ef:theme', 'dark'))
+  const [subject, setSubject] = useState('Physical Science')
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>(['physical-science'])
+  const [catalogueSearch, setCatalogueSearch] = useState('')
+  const [allSubjectsOpen, setAllSubjectsOpen] = useState(false)
+  const [grade, setGrade] = useState('12')
+  const [examDate, setExamDate] = useState(() => dateAfterDays(20))
+  const [weak, setWeak] = useState<string[]>([])
+  const [sessionQs, setSessionQs] = useState<PracticeQuestion[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [sessionStartedAt, setSessionStartedAt] = useState('')
+  const [recoverableSession, setRecoverableSession] = useState<SessionSnapshot | null>(null)
+  const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null)
+  const [questionIndex, setQuestionIndex] = useState(0)
+  const [selected, setSelected] = useState<number | null>(null)
+  const [answers, setAnswers] = useState<number[]>([])
+  const [rewindOpen, setRewindOpen] = useState(false)
+  const [seconds, setSeconds] = useState(0)
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [remoteDates, setRemoteDates] = useState<string[]>([])
+  const [attempts, setAttempts] = useState<Attempt[]>([])
+  const [flashcardReviews, setFlashcardReviews] = useState<Record<string, FlashcardReviewState>>({})
+  const [mistakeSearch, setMistakeSearch] = useState('')
+  const [activeReviewId, setActiveReviewId] = useState<string | null>(null)
+  const [flashcardRevealed, setFlashcardRevealed] = useState(false)
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('All')
+  const [roadmapGrade, setRoadmapGrade] = useState('12')
+  const [roadmapSubjectId, setRoadmapSubjectId] = useState<'mathematics' | 'physical-science'>('mathematics')
+  const [notes, setNotes] = useState<File[]>([])
+  const [noteStatus, setNoteStatus] = useState('')
+  const [aiSourceText, setAiSourceText] = useState('')
+  const [aiGenerationStatus, setAiGenerationStatus] = useState('')
+  const [aiDraft, setAiDraft] = useState<AIStudyDraft | null>(null)
+  const [aiDraftHistory, setAiDraftHistory] = useState<AIStudyDraft[]>([])
   const [aiBusy, setAiBusy] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [userEmail, setUserEmail] = useState('')
@@ -546,6 +850,7 @@ function App() {
         provenance: String(data.provenance), reviewStatus: 'pending',
       }
       setAiDraft(draft)
+      setAiDraftHistory(current => [draft, ...current.filter(item => item.id !== draft.id)])
       setAiGenerationStatus('Draft created. Review the answer and explanation before approving it.')
     } catch (error) {
       console.error('AI draft request failed:', error)
@@ -567,7 +872,9 @@ function App() {
       setAiGenerationStatus('Your review decision could not be saved. Please retry.')
       return
     }
-    setAiDraft({ ...aiDraft, reviewStatus: status })
+    const updatedDraft = { ...aiDraft, reviewStatus: status }
+    setAiDraft(updatedDraft)
+    setAiDraftHistory(current => current.map(draft => draft.id === updatedDraft.id ? updatedDraft : draft))
     setAiGenerationStatus(status === 'approved'
       ? 'Draft approved and saved to your question library. It is still labelled AI-generated, not official DBE content.'
       : 'Draft rejected. It remains marked rejected in your private question library.')
@@ -724,7 +1031,7 @@ function App() {
         </article>)}</div>
         <p className="hint">ExamForge links to the Department of Basic Education archive. The documents remain hosted by the DBE; ExamForge does not re-host or alter the papers or marking memos.</p>
       </>}
-      {tab==='Upload Notes' && <><div className="page-heading"><p className="eyebrow purple-text">YOUR NOTES. YOUR QUESTIONS.</p><h1>Upload Notes</h1><p className="muted">Add notes to generate targeted practice questions.</p></div><label className="upload-zone"><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={e=>pickNotes(Array.from(e.target.files||[]))}/><div className="upload-icon"><Upload size={30}/></div><b>Take a photo or upload a PDF</b><p>Capture handwritten or printed notes instantly.</p><span className="upload-link">Choose files <Plus size={15}/></span><small>JPG, PNG, WebP or PDF · Max 10 MB per file</small></label>{notes.length>0&&<div className="selected-files">{notes.map((f,i)=><div key={`${f.name}-${i}`}><FileText size={17}/><span>{f.name}</span><button aria-label={`Remove ${f.name}`} onClick={()=>setNotes(a=>a.filter(x=>x!==f))}><X size={16}/></button></div>)}<button className="primary full" onClick={uploadNotes}>Upload {notes.length} file(s) <ChevronRight size={18}/></button></div>}{noteStatus&&<p className="status-message">{noteStatus}</p>}<section className="purple-panel"><div className="purple-icon"><FlaskConical/></div><div><b>What happens next?</b><p>Coming soon: ExamForge will extract your notes, check confidence, and draft questions linked to your weak topics. You review them before they enter Rewind. For now, uploads are stored privately.</p></div></section><div className="section-heading"><div><h2>Recently uploaded</h2><p className="muted">Your study material library</p></div></div><section className="panel ai-draft-panel"><div className="section-heading"><div><h2>AI question studio</h2><p className="muted">Paste extracted study text to create one private question draft.</p></div><span className="tag">Beta · server-side</span></div><label className="field-label" htmlFor="ai-source-text">Study text</label><textarea id="ai-source-text" rows={6} maxLength={8000} value={aiSourceText} onChange={event=>setAiSourceText(event.target.value)} placeholder="Paste a section of your textbook or class notes (100–8,000 characters). Do not include personal information."/><div className="ai-source-meta"><span>{aiSourceText.length}/8,000 characters</span><span>{user?'Private learner account':'Sign in required'}</span></div><button type="button" className="primary full" disabled={aiBusy || aiSourceText.trim().length<100} onClick={()=>void generateAIQuestionDraft()}>{aiBusy?'Working securely…':'Generate one question draft'} <ChevronRight size={18}/></button>{aiGenerationStatus&&<p className="status-message" role="status">{aiGenerationStatus}</p>}{aiDraft&&<article className="ai-question-preview"><div className="ai-preview-top"><span className="tag">{aiDraft.reviewStatus==='pending'?'Pending your review':aiDraft.reviewStatus==='approved'?'Approved draft':'Rejected draft'}</span><span className="ai-confidence">Source confidence: {Math.round(aiDraft.confidence*100)}%</span></div><p className="question-source">{aiDraft.subjectName} · Grade {aiDraft.grade} · {aiDraft.topic}</p><h3>{aiDraft.prompt}</h3><ol className="ai-answer-options">{aiDraft.options.map((option,index)=><li className={index===aiDraft.answerIndex?'ai-correct-option':''} key={option}>{option}{index===aiDraft.answerIndex?' · Suggested answer':''}</li>)}</ol><div className="review-answer"><b>Explanation</b><p>{aiDraft.explanation}</p></div><p className="archive-provenance">{aiDraft.sourceLabel} · {aiDraft.provenance}</p>{aiDraft.reviewStatus==='pending'&&<div className="ai-review-actions"><button type="button" disabled={aiBusy} onClick={()=>void setAIDraftReviewStatus('rejected')}>Reject draft</button><button type="button" disabled={aiBusy} onClick={()=>void setAIDraftReviewStatus('approved')}>Approve draft</button></div>}</article>}<p className="hint">The AI draft is not inserted into Tonight’s 20. Text extraction/OCR for uploaded PDFs and images is not yet connected; paste extracted text here. The provider remains disabled until the project owner configures server-side secrets.</p></section><div className="empty-state"><BookOpen size={30}/><b>Nothing processed yet</b><p>Private uploaded files remain queued until a verified extraction service is configured.</p></div></>}
+      {tab==='Upload Notes' && <><div className="page-heading"><p className="eyebrow purple-text">YOUR NOTES. YOUR QUESTIONS.</p><h1>Upload Notes</h1><p className="muted">Add notes to generate targeted practice questions.</p></div><label className="upload-zone"><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={e=>pickNotes(Array.from(e.target.files||[]))}/><div className="upload-icon"><Upload size={30}/></div><b>Take a photo or upload a PDF</b><p>Capture handwritten or printed notes instantly.</p><span className="upload-link">Choose files <Plus size={15}/></span><small>JPG, PNG, WebP or PDF · Max 10 MB per file</small></label>{notes.length>0&&<div className="selected-files">{notes.map((f,i)=><div key={`${f.name}-${i}`}><FileText size={17}/><span>{f.name}</span><button aria-label={`Remove ${f.name}`} onClick={()=>setNotes(a=>a.filter(x=>x!==f))}><X size={16}/></button></div>)}<button className="primary full" onClick={uploadNotes}>Upload {notes.length} file(s) <ChevronRight size={18}/></button></div>}{noteStatus&&<p className="status-message">{noteStatus}</p>}<section className="purple-panel"><div className="purple-icon"><FlaskConical/></div><div><b>What happens next?</b><p>Coming soon: ExamForge will extract your notes, check confidence, and draft questions linked to your weak topics. You review them before they enter Rewind. For now, uploads are stored privately.</p></div></section><div className="section-heading"><div><h2>Recently uploaded</h2><p className="muted">Your study material library</p></div></div><section className="panel ai-draft-panel"><div className="section-heading"><div><h2>AI question studio</h2><p className="muted">Paste extracted study text to create one private question draft.</p></div><span className="tag">Beta · server-side</span></div><label className="field-label" htmlFor="ai-source-text">Study text</label><textarea id="ai-source-text" rows={6} maxLength={8000} value={aiSourceText} onChange={event=>setAiSourceText(event.target.value)} placeholder="Paste a section of your textbook or class notes (100–8,000 characters). Do not include personal information."/><div className="ai-source-meta"><span>{aiSourceText.length}/8,000 characters</span><span>{user?'Private learner account':'Sign in required'}</span></div><button type="button" className="primary full" disabled={aiBusy || aiSourceText.trim().length<100} onClick={()=>void generateAIQuestionDraft()}>{aiBusy?'Working securely…':'Generate one question draft'} <ChevronRight size={18}/></button>{aiGenerationStatus&&<p className="status-message" role="status">{aiGenerationStatus}</p>}{aiDraft&&<article className="ai-question-preview"><div className="ai-preview-top"><span className="tag">{aiDraft.reviewStatus==='pending'?'Pending your review':aiDraft.reviewStatus==='approved'?'Approved draft':'Rejected draft'}</span><span className="ai-confidence">Source confidence: {Math.round(aiDraft.confidence*100)}%</span></div><p className="question-source">{aiDraft.subjectName} · Grade {aiDraft.grade} · {aiDraft.topic}</p><h3>{aiDraft.prompt}</h3><ol className="ai-answer-options">{aiDraft.options.map((option,index)=><li className={index===aiDraft.answerIndex?'ai-correct-option':''} key={option}>{option}{index===aiDraft.answerIndex?' · Suggested answer':''}</li>)}</ol><div className="review-answer"><b>Explanation</b><p>{aiDraft.explanation}</p></div><p className="archive-provenance">{aiDraft.sourceLabel} · {aiDraft.provenance}</p>{aiDraft.reviewStatus==='pending'&&<div className="ai-review-actions"><button type="button" disabled={aiBusy} onClick={()=>void setAIDraftReviewStatus('rejected')}>Reject draft</button><button type="button" disabled={aiBusy} onClick={()=>void setAIDraftReviewStatus('approved')}>Approve draft</button></div>}</article>}{aiDraftHistory.length>0&&<section className="panel ai-draft-history"><h3>Your AI question drafts</h3>{aiDraftHistory.map(draft=><article className="ai-history-row" key={draft.id}><div className="mistake-title-row"><b>{draft.subjectName} · {draft.topic}</b><span className={`review-status ${draft.reviewStatus==='approved'?'scheduled':draft.reviewStatus==='pending'?'due':'rejected'}`}>{draft.reviewStatus}</span></div><p>{draft.prompt}</p><button type="button" className="text-btn" onClick={()=>setAiDraft(draft)}>Open draft for review</button></article>)}</section>}<p className="hint">The AI draft is not inserted into Tonight’s 20. Text extraction/OCR for uploaded PDFs and images is not yet connected; paste extracted text here. The provider remains disabled until the project owner configures server-side secrets.</p></section><div className="empty-state"><BookOpen size={30}/><b>Nothing processed yet</b><p>Private uploaded files remain queued until a verified extraction service is configured.</p></div></>}
       {tab==='Progress' && <><div className="page-heading"><p className="eyebrow">EVIDENCE-BASED FEEDBACK</p><h1>Your Progress</h1><p className="muted">Accuracy reflects submitted answers. Activity is not the same as mastery.</p></div><div className="progress-summary"><div><span>Completed sessions</span><b>{doneDates.length}</b><div className="bar"><i style={{width:`${Math.min(100,doneDates.length*5)}%`}}/></div></div><div><span>Current streak</span><b>{streak}</b><div className="bar bluebar"><i style={{width:`${Math.min(100,streak*10)}%`}}/></div></div><div><span>Practice accuracy</span><b>{accuracy===null?'—':`${accuracy}%`}</b><div className="bar"><i style={{width:`${accuracy??0}%`}}/></div></div></div><section className="panel progress-panel"><h3>Recent accuracy trend</h3><div className="trend-summary"><div><small>Last 7 days</small><b>{progressInsight.recentAccuracy===null?'—':`${progressInsight.recentAccuracy}%`}</b><span>{progressInsight.recentAttempts} recorded answers</span></div><div><small>Previous 7 days</small><b>{progressInsight.previousAccuracy===null?'—':`${progressInsight.previousAccuracy}%`}</b><span>{progressInsight.previousAttempts} recorded answers</span></div><span className={`trend-label trend-${progressInsight.trend}`}>{progressInsight.trend==='insufficient-data'?'Not enough trend data':progressInsight.trend}</span></div></section><section className="panel recommendation-panel"><div className="section-heading"><div><h3>Suggested next focus</h3><p className="muted">Optional · based on your recorded answers</p></div><span className="tag">You choose</span></div>{progressInsight.recommendedTopic ? <><b>{progressInsight.recommendedTopic.topic}</b><p className="muted">{progressInsight.explanation}</p><button type="button" className="text-btn" onClick={()=>{setWeak([progressInsight.recommendedTopic!.topic]);setToast(`Suggested focus set to ${progressInsight.recommendedTopic!.topic}. You can change it whenever you like.`);setTab('Dashboard')}}>Use this topic next</button></> : <p className="muted">{progressInsight.explanation}</p>}</section><section className="panel progress-panel"><h3>Topic accuracy · last 20 attempts</h3>{progressInsight.topics.map(item=><div className="mastery-row" key={item.topic}><span>{item.topic}<small className="evidence-count">{item.attempts} attempt{item.attempts===1?'':'s'}{item.evidenceStatus==='insufficient-sample'?' · building sample':''}</small></span><b>{item.attempts===0?'—':`${item.accuracy}%`}</b><div className="bar"><i style={{width:`${item.attempts?item.accuracy:0}%`}}/></div></div>)}</section><section className="panel"><h3>Study activity</h3>{doneDates.length===0?<div className="activity-empty"><Activity size={25}/><p>Complete your first Rewind to start building your activity history.</p></div>:<div className="activity-empty"><Activity size={25}/><p>{doneDates.length} Rewind{doneDates.length===1?'':'s'} completed. Last: {[...doneDates].sort().slice(-1)[0]}.</p></div>}</section><section className="panel mistake-notebook"><div className="section-heading"><div><h3>Mistake notebook</h3><p className="muted">{mistakeQuestions.length} saved question{mistakeQuestions.length===1?'':'s'} · {dueMistakeCount} due to review</p></div></div><label className="catalogue-search"><Search size={16}/><input aria-label="Search mistake notebook" placeholder="Search saved mistakes…" value={mistakeSearch} onChange={event=>setMistakeSearch(event.target.value)}/></label>{mistakeQuestions.length===0?<div className="activity-empty"><BookOpen size={24}/><p>No saved mistakes match this search. Incorrect answers from practice sessions appear here with corrections.</p></div>:mistakeQuestions.map(question=>{const review=flashcardReviews[question.id];const due=isFlashcardDue(review);const latest=attempts.filter(item=>item.questionId===question.id&&!item.correct).slice(-1)[0];return <article className="mistake-row" key={question.id}><div className="mistake-title-row"><b>{question.topic}</b><span className={`review-status ${due?'due':'scheduled'}`}>{due?'Due now':`Due ${new Date(review!.next_review_at).toLocaleDateString()}`}</span></div><p>{question.prompt}</p><small>Your answer: {question.options[latest?.response?.selected ?? -1] ?? 'Not recorded'}</small><p>Correct answer: {question.options[question.answer]}</p><p>{question.explanation}</p><button type="button" className="text-btn" onClick={()=>{setActiveReviewId(question.id);setFlashcardRevealed(false)}}>{due?'Review now':'Review card'}</button></article>})}</section><p className="hint">Accuracy is calculated from saved attempts per topic; a small sample is shown as developing evidence, not mastery.</p></>}
     </main>
     <Navigation className="bottom-nav" label="Main navigation" items={[
