@@ -1,6 +1,29 @@
 -- Disposable PostgreSQL tests for AI usage quota and learner-scoped visibility.
 -- Run after learner-subjects-rls.sql; this only uses local CI identities.
 \set ON_ERROR_STOP on
+
+-- Model the existing table from migration 001 before applying additive migration 005.
+create extension if not exists pgcrypto;
+create table public.generated_questions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  note_upload_id uuid,
+  subject text not null,
+  topic text not null,
+  question_type text not null check (question_type in ('mcq','calculation','explain','derive')),
+  prompt text not null,
+  options jsonb,
+  answer_key jsonb,
+  explanation text,
+  confidence numeric(4,3),
+  review_status text not null default 'pending' check (review_status in ('pending','approved','rejected')),
+  created_at timestamptz not null default now()
+);
+alter table public.generated_questions enable row level security;
+create policy generated_questions_select_own on public.generated_questions
+  for select to authenticated using (auth.uid() = user_id);
+grant select on public.generated_questions to authenticated;
+
 \ir ../../supabase/migrations/005_ai_study_usage.sql
 
 set role service_role;
