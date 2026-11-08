@@ -1,6 +1,6 @@
 # Foundation 2.0 — Branch Reconciliation Audit
 
-**Date:** 7 November 2026  
+**Date:** 8 November 2026  
 **Repository:** `klonz484/examforge`  
 **Working branch:** `foundation/examforge-foundation-2`  
 **Purpose:** Record the actual repository baseline and risks before porting the earlier subject-catalogue implementation.
@@ -12,8 +12,8 @@
 - The shared UI verification workflow on the latest main commit completed successfully: run [42354496623](https://github.com/klonz484/examforge/actions/runs/42354496623).
 - The GitHub Pages deployment workflow on the latest main commit completed successfully: run [42354496490](https://github.com/klonz484/examforge/actions/runs/42354496490).
 - The package lockfile was synchronised in the shared UI PR history; the current main verification workflow uses `npm ci`.
-- PR #1, “Add reuse-first engineering and contribution workflow”, was still open at audit time. Its current checks and review status must be checked before any merge decision.
-- The foundation branch is based directly on current `main`, with no commits behind it. It contains the roadmap documentation and this isolated verification workflow; no subject feature implementation is yet confirmed as ported.
+- PR #1, “Add reuse-first engineering and contribution workflow”, remains open and unmerged as of 8 November 2026. It is separate from PR #3 and was not changed in this run.
+- The foundation branch remains based on main commit `259df190812ad9d47405d3402b90998fafbd2fc3`; the current comparison is 213 commits ahead and 0 behind. Current head is `6709e144d0b2be3c0e68f2063b4e6bcc6f52b3ee`. The branch now contains the Phase 0–5 implementation; Phases 0–4 are complete on this branch and Phase 5 remains gated for provider/OCR approval.
 - The old `feat/verified-seven-subject-package` branch is substantially diverged: 50 commits ahead and 42 behind `main`. It must not be merged wholesale.
 
 ## 2. Verification workflow added
@@ -97,7 +97,7 @@ Verification run for this port: [42390251372](https://github.com/klonz484/examfo
 
 Phase 0 (Foundation stabilisation) has met its documented exit criteria on the foundation branch. Evidence:
 
-- Branch comparison against `main`: `foundation/examforge-foundation-2` is 27 commits ahead and 0 behind; merge base is current production baseline `259df190812ad9d47405d3402b90998fafbd2fc3`. No production merge was performed.
+- Branch comparison against main: foundation/examforge-foundation-2 is currently 213 commits ahead and 0 behind; merge base remains production baseline `259df190812ad9d47405d3402b90998fafbd2fc3`. No production merge was performed.
 - Latest head: `2839d012901713f5a87471e81b1c66a06129fce6` (`test: clear existing topic selections safely`).
 - Full isolated verification: [run 42393214592](https://github.com/klonz484/examforge/actions/runs/42393214592) completed successfully. Locked dependency installation (`npm ci`), TypeScript/production build, Playwright browser installation (Chromium, Firefox, WebKit), and the complete browser/integration suite all passed.
 - The four selector/setup failures in earlier run 42392328332 were corrected through focused test commits; the later complete run above is the evidence used for this exit review.
@@ -138,8 +138,58 @@ Phase 2 implementation has been delivered on the foundation branch. The final ex
 
 **Evidence:** [verification run 42447976494](https://github.com/klonz484/examforge/actions/runs/42447976494), head `ad8e3470667a975adea413251cc4c57969b803dc`. Both disposable PostgreSQL 16 SQL suites passed; TypeScript/build passed; Playwright passed **63** with **7 skipped** across Chromium, Firefox and WebKit.
 
-**Outstanding exit gate:** The guarded Supabase E2E tests (including cloud sign-out/sign-in session recovery) did not execute because no disposable staging Supabase configuration was supplied. The test must be run against disposable staging before Phase 2 is marked complete. Do not run destructive test-account operations against the live project.
+**Historical gate closure:** The earlier run above skipped the guarded cloud-auth tests. This was later resolved without creating a Supabase preview branch or touching live Supabase.
+
+- [Foundation verification run #332](https://github.com/klonz484/examforge/actions/runs/42505206691) passed on head 072b20d4644742a4ec0dd2157ef8b4a58f40ad87.
+- CI created disposable local Supabase containers, applied migrations, created three local accounts, served Edge Functions without provider secrets, and ran authenticated browser/integration tests.
+- The sign-out/sign-in session recovery and offline answer-queue sync checks executed; Playwright reported **108 passed, 0 skipped**.
+- No real learner data or connected live Supabase project was used.
+
+**Phase 2: COMPLETE on the foundation branch only.** PR #3 remains open and unmerged; no production migration, merge or deployment occurred.
 
 **Content boundary:** Grade 12 Mathematics and Physical Sciences only are currently populated. Questions are original ExamForge practice, not official DBE questions. Broader grade/subject coverage and official paper ingestion remain later roadmap work.
 
 No live Supabase migration, main merge or Pages deployment occurred. PR #3 remains open.
+
+## 11. Phase 3 and Phase 4 exit evidence — 8 November 2026
+
+### Phase 3 — Curriculum and exam library: COMPLETE on the foundation branch
+
+- Six DBE-sourced grade/subject roadmaps cover Grade 10–12 Mathematics and Physical Sciences. ATP source and catalogue status distinctions are retained.
+- Eight official DBE archive-index entries cover Mathematics and Physical Sciences for November 2024, May/June 2025, November 2025 and May/June 2026. The cards label year/source and link to the DBE index pages; individual PDFs remain hosted by DBE.
+- Original topic practice sets exist for all six grade/subject combinations with stable IDs, answer keys, explanations and explicit ExamForge provenance.
+- Mistake notebook search, correction cards and persisted spaced-repetition scheduling are implemented.
+- Unsupported catalogue-only subjects are not presented as complete courses.
+- Curriculum/practice/spaced-review tests passed in [run #332](https://github.com/klonz484/examforge/actions/runs/42505206691). DBE ATP/archive index pages were checked on 8 November 2026.
+
+### Phase 4 — Progress intelligence: COMPLETE on the foundation branch
+
+- Topic accuracy, trends and next-focus recommendations derive from saved attempts and session records with subject/grade/question context.
+- Empty/small samples are shown as insufficient evidence; accuracy is not described as mastery; learner recommendations remain optional and overridable.
+- The disposable local Supabase E2E test saved an attempt, read it back under the same learner, checked expected small-sample output and confirmed another account could not read it.
+- Progress unit/browser/integration tests passed in [run #332](https://github.com/klonz484/examforge/actions/runs/42505206691).
+
+## 12. Phase 5 implementation and approval boundary — 8 November 2026
+
+**Provider-independent work delivered**
+- Private note storage and owner/path/file validation.
+- Selectable-text PDF extraction using unpdf, with size/page/time/text bounds.
+- Scanned PDFs and image uploads are marked low-confidence; no external OCR service is called.
+- Extraction metadata records quality and confidence status; numeric confidence remains null because no calibrated score is available.
+- AI question drafts are server-side, evidence-checked, provenance-labelled and pending human review.
+- Subject/grade/topic metadata is allowlisted to the actual Grade 10–12 Mathematics and Physical Sciences starter practice map.
+- Atomic five-per-day request quota and usage-accounting/RLS tests pass.
+- The UI feature flag defaults to disabled; the Edge Function returns a safe disabled response when provider secrets are absent.
+
+**Verification:** [Foundation run #351](https://github.com/klonz484/examforge/actions/runs/42506065508) passed on head 6709e144d0b2be3c0e68f2063b4e6bcc6f52b3ee: **114 passed, 0 skipped**. This includes private PDF extraction, scanned/image low-confidence paths, account isolation, provider-disabled handling, metadata allowlist checks and the disabled UI. Shared UI check [run #184](https://github.com/klonz484/examforge/actions/runs/42506065474) passed.
+
+**Still blocked:** OCR for images/scanned PDFs, automatic classification of arbitrary extracted text, and AI provider activation. The owner must approve privacy/POPIA, vendor/data-processing terms, retention/region/subprocessors, hard spend limits and monitoring before any provider secrets or OCR service are configured. No provider call or cost has occurred.
+
+**Phase 5 status: PARTIAL — owner approval gate open.**
+
+## 13. Phase 6 launch-readiness boundary
+
+Manual physical Android accessibility/screen-reader testing, POPIA/legal review, independent security/penetration review, hosted backup/restore drill, full offline/conflict testing, target-device performance, monitoring/support/incident/rollback operations and final content licensing review remain incomplete.
+
+These require owner/legal/device access or approved live-service configuration. Do not merge PR #3, apply live migrations, deploy Pages, configure production secrets or incur provider costs without separate explicit approval. PR #3 remains draft, open and unmerged.
+
