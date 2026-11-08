@@ -66,7 +66,7 @@ insert into public.question_attempts (
 
 \ir ../../supabase/migrations/006_progress_attempt_context.sql
 
-do $
+do $$
 begin
   if not exists (
     select 1 from public.question_attempts
@@ -76,7 +76,7 @@ begin
     raise exception 'Historical attempt was not backfilled from its saved session context';
   end if;
 end;
-$;
+$$;
 
 set role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', false);
