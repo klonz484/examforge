@@ -47,7 +47,9 @@ test('student can complete onboarding and reopen saved study settings', async ({
   ].join('-')
 
   await page.locator('input[type="date"]').fill(dateValue)
-  await page.getByRole('button', { name: 'Grade 11' }).click()
+  // Grade 12 is the currently supported starter question bank. Grade 10–11
+  // roadmap discovery is tested separately and must not imply question content.
+  await page.getByRole('button', { name: 'Grade 12' }).click()
   await page.locator('.catalogue-option').filter({ hasText: 'Mathematics' }).first().click()
   await page.getByLabel('Choose your first study focus').selectOption('mathematics')
   await page.getByRole('button', { name: 'Algebra', exact: true }).click()
@@ -65,7 +67,7 @@ test('student can complete onboarding and reopen saved study settings', async ({
 
   await expect(page.getByRole('heading', { name: /Set up your exam focus/ })).toBeVisible()
   await expect(page.locator('input[type="date"]')).toHaveValue(dateValue)
-  await expect(page.getByRole('button', { name: 'Grade 11' })).toHaveClass(/chosen/)
+  await expect(page.getByRole('button', { name: 'Grade 12' })).toHaveClass(/chosen/)
   await expect(page.locator('.catalogue-option.chosen').filter({ hasText: 'Mathematics' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Algebra', exact: true })).toHaveClass(/selected/)
   await expect(page.getByRole('button', { name: 'Functions', exact: true })).toHaveClass(/selected/)
