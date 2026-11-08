@@ -96,7 +96,7 @@ function App() {
   const enrolledSubjects = selectedSubjectIds.map(id => CAPS_SUBJECTS.find(item => item.id === id)).filter((item): item is CapsSubject => Boolean(item))
   const dashboardSubjects = enrolledSubjects.slice(0, 7)
   const catalogueResults = searchCapsSubjects(catalogueSearch, Number(grade) as 10 | 11 | 12).filter(item => item.status !== 'pathway-parent')
-  const activeSubjectId = enrolledSubjects.find(item => item.id === (subject === 'Physical Science' || subject === 'Physical Sciences' ? 'physical-science' : subject === 'Mathematics' ? 'mathematics' : ''))?.id ?? selectedSubjectIds[0] ?? 'physical-science'
+  const activeSubjectId = enrolledSubjects.find(item => item.name === subject || (item.id === 'physical-science' && (subject === 'Physical Science' || subject === 'Physical Sciences')))?.id ?? selectedSubjectIds[0] ?? 'physical-science'
   const hasStarterQuestionBank = ['Mathematics', 'Physical Science', 'Physical Sciences'].includes(subject)
   const daysLeft = examDate ? Math.max(0, Math.ceil((new Date(examDate + 'T23:59:59').getTime() - Date.now()) / 86400000)) : null
   const currentQuestion = sessionQs[questionIndex]
