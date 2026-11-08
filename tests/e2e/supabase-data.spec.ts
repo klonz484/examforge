@@ -212,6 +212,8 @@ test('Supabase study data and private notes enforce per-account access', async (
   const otherNote = await accountB.from('note_uploads').select('id').eq('id', note.data!.id)
   expect(otherNote.error).toBeNull()
   expect(otherNote.data).toEqual([])
+  const accountBExtraction = await accountB.functions.invoke('extract-study-note', { body: { noteId: note.data!.id } })
+  expect(accountBExtraction.error).not.toBeNull()
 
   const otherDownload = await accountB.storage.from('student-notes').download(storagePath)
   expect(otherDownload.error).not.toBeNull()
