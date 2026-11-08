@@ -33,7 +33,7 @@ test('learner can turn a saved mistake into a spaced-review card', async ({ page
   }
 
   await expect(page.getByText(/Tonight’s 20 complete:/)).toBeVisible()
-  await page.getByRole('button', { name: 'Progress' }).click()
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Progress' }).click()
   await expect(page.getByRole('heading', { name: 'Mistake notebook' })).toBeVisible()
   await expect(page.getByText(/5 saved questions/)).toBeVisible()
 
