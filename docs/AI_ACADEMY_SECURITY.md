@@ -1,59 +1,70 @@
 # ExamForge AI Academy — Security and Operations Design
 
-**Status:** Server-side draft-generation scaffold implemented; provider disabled until project-owner configuration and privacy review.
+**Status:** Provider disabled. Private text-based PDF extraction and a server-side AI draft-generation scaffold are implemented; OCR and provider activation remain gated by project-owner approval.
 
-## Architecture
+## Current architecture
 
-The browser calls the Supabase Edge Function `generate-study-question` using the learner's authenticated Supabase session. The function validates the token with Supabase Auth, validates the request, verifies that the subject is enrolled, reserves a daily usage slot, invokes an HTTPS AI endpoint with server-only credentials, validates the returned MCQ structure, records usage, and inserts the result under the learner's account.
+The learner uploads supported files into the private student-notes storage bucket under their own user-ID folder. Row-level security (RLS) restricts storage and note-row access to that learner. The extract-study-note Edge Function validates the bearer token, note ownership, storage path, MIME type, stored size and PDF signature before using the server-side service role to read the object and persist extraction results.
 
-The service-role key and provider credential are read only from Edge Function environment secrets. They must never be placed in `VITE_*` variables, browser bundles, repository files, client logs, or issue comments.
+Text-based PDFs are processed with unpdf. Extraction is bounded by a 10 MB file limit, 30 pages, a 15-second timeout and an 8,000-character output limit. The function records quality metadata. It does not call an external OCR service.
 
-## Controls in the current implementation
+The browser can call generate-study-question only with an authenticated learner session. The function checks subject enrolment and validates the subject/grade/topic against the supported Grade 10–12 Mathematics and Physical Sciences starter-practice map before any provider request. If a provider is later approved and configured, the function will use server-only secrets, validate the model output and store a pending, provenance-labelled draft for learner review.
 
-- Learner authentication is required and the token is validated server-side.
-- Requested subject must be present in the learner's `learner_subjects` enrolment.
-- Grade is restricted to 10–12; subject ID, subject name and topic are length/format checked.
-- Source text is restricted to 100–8,000 characters.
-- Daily quota reservation is atomic and keyed by the learner's Africa/Johannesburg local date; default limit is five requests per learner per day.
-- Quota and character counts are stored in `ai_usage_daily`; learners can read only their own usage row and cannot write quota state directly.
-- Provider endpoint must use HTTPS and all provider secrets are server-side.
-- The model is instructed to return one JSON MCQ with exactly four distinct options, answer index, explanation and confidence.
-- Server validation rejects invalid prompts, options, answer indices, explanations and confidence values.
-- Generated records are written with `review_status = 'pending'`, source label, model name and explicit AI provenance.
-- The answer is returned only to the authenticated owner for preview/review; it is not inserted automatically into Tonight's 20.
-- Failed provider requests do not mutate existing learner sessions, attempts or notes.
-- The Edge Function requires the server-only `AI_STUDY_ENABLED=true` kill switch before it can read provider configuration or make a provider request. It returns 503 by default; the browser's `VITE_AI_STUDY_ENABLED` flag only controls UI visibility and is not a security boundary.
-- The local verification workflow explicitly sets `AI_STUDY_ENABLED=false` and provides no provider secrets; authenticated tests assert the server refuses drafting.
-- Provider requests have a 20-second timeout. No provider API calls are made in this repository workflow.
+## Controls currently implemented
 
-## Required Edge Function secrets
+- The student-notes bucket is private, limited to JPEG, PNG, WebP and PDF, and capped at 10 MB per object.
+- Storage object paths must begin with the authenticated learner ID. Note rows are owner-scoped by RLS.
+- The extraction function checks authentication, note ownership, path ownership, MIME type, file size, PDF magic bytes, page count and extraction time.
+- Selectable-text PDF extraction is private and bounded. Scanned PDFs and images are marked low-confidence; the response states that OCR is not enabled and no external OCR provider was called.
+- Extraction metadata reports qualityStatus and confidenceStatus. The numeric extraction_confidence column remains null because no calibrated numeric extraction-confidence model is used.
+- AI provider credentials and the Supabase service-role key are read only from Edge Function environment secrets. They must never be placed in VITE variables, browser bundles, repository files, client logs or issue comments.
+- The AI Edge Function requires learner authentication, verifies the selected subject is enrolled, and restricts metadata to supported subject/grade/topic combinations that have actual starter practice content.
+- Source text is limited to 100–8,000 characters. If a private note ID is supplied, the function reads extracted text from the authenticated learner's own ready note row rather than trusting browser-supplied replacement text.
+- The model is instructed to treat source text as untrusted reference data, use only supported facts, avoid DBE endorsement claims and return one structured MCQ with four distinct options, answer index, explanation, evidence excerpt and model-estimated confidence.
+- Server validation checks the question structure and requires the evidence excerpt to occur verbatim in the source text.
+- Generated drafts retain explicit AI provenance and start in pending review status. Approval/rejection is saved by the learner; approved drafts do not automatically enter Tonight's 20.
+- Atomic daily request reservation is limited to five requests per learner by default and keyed to the Africa/Johannesburg date. Usage rows are readable only by their owner; quota writes are service-role-only.
+- The UI feature flag VITE_AI_STUDY_ENABLED defaults to false. The Edge Function also returns 503 when provider secrets are absent. Both controls remain disabled; no provider request is made in CI.
+- Ordinary practice, session persistence, progress and review do not depend on the AI provider.
 
-Configure only through Supabase Edge Function secrets after a privacy, vendor and cost review:
+## Current environment configuration
 
-- `AI_STUDY_ENABLED`: server-side kill switch; leave `false` or unset until all approval gates below are complete. This must be set to `true` separately from the browser flag.
-- `AI_STUDY_ENDPOINT`: HTTPS endpoint compatible with the implemented chat-completions request/response shape.
-- `AI_STUDY_API_KEY`: provider credential.
-- `AI_STUDY_MODEL`: approved model identifier.
-- `AI_ALLOWED_ORIGINS`: optional comma-separated explicit additional browser origins; default origin allowlist is deliberately narrow.
+The only frontend flag is:
 
-Supabase's standard `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are provided to the Edge Function runtime. Never expose the service-role key to the client.
+- VITE_AI_STUDY_ENABLED=false — a non-secret UI gate. It must remain false until the project owner explicitly approves provider activation.
 
-## Before turning on a provider
+If and only if privacy, vendor and cost review is approved, configure these as Supabase Edge Function secrets, never frontend variables:
 
-1. Select a provider and verify its data-processing agreement, retention settings, regional processing, subprocessors, training-use policy and deletion path.
-2. Complete a POPIA privacy assessment/DPIA appropriate to learners, including minors, uploaded notes and third-party transfer.
-3. Set provider-side hard spend limits and alerting; review the five-request daily app quota and char counters for abuse/cost suitability.
-4. Deploy migrations and Edge Function to a non-production target first, then execute authenticated, unauthorized, quota-exhaustion, malformed-output, provider-timeout and account-isolation tests.
-5. Confirm rate limits at gateway/provider level as well as the database quota; the current quota controls count requests, not token spend.
-6. Add model-output quality review and operational monitoring. The confidence value is model-reported, not calibrated scientific confidence.
-7. Keep AI drafts clearly distinguishable from official DBE content. Learner approval is a review decision, not DBE endorsement or guaranteed correctness.
+- AI_STUDY_ENDPOINT — approved HTTPS endpoint compatible with the implemented request/response contract.
+- AI_STUDY_API_KEY — provider credential.
+- AI_STUDY_MODEL — approved model identifier.
+- AI_ALLOWED_ORIGINS — optional comma-separated additional browser origins, reviewed explicitly.
+
+Supabase provides SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY to the Edge Function runtime. The service-role key must never be exposed to the client.
+
+## Before turning on OCR or an AI provider
+
+1. Select the OCR/AI vendors and review data-processing agreements, retention, processing region, subprocessors, training-use policy and deletion path.
+2. Complete a POPIA privacy assessment appropriate to learners and minors, including uploaded notes and any third-party transfer.
+3. Approve the exact data categories sent to each provider. Do not send images, scanned PDFs or learner notes until this review is complete.
+4. Set provider-side hard spend limits, alerts and gateway-level rate limits. The current database quota counts requests and characters, not token-level spend.
+5. Configure secrets only in a non-production Supabase Edge Function environment after owner approval.
+6. Run authenticated, unauthorized, quota-exhaustion, malformed-output, timeout, low-confidence extraction, account-isolation and provider-failure tests against disposable data.
+7. Review model-output correctness, evidence support and age/grade suitability. Model-reported confidence is uncalibrated and is not a correctness guarantee.
+8. Keep every generated item clearly distinguishable from official DBE material. Learner approval is not DBE endorsement or a guarantee of correctness.
+9. Keep the UI feature flag false until the server-side provider configuration and the full non-production verification both pass.
 
 ## Current limitations
 
-- Provider activation is server-side disabled by default; no provider secrets are configured and no paid provider request has been made.
-- Text-based PDF extraction uses `unpdf` in the authenticated Edge Function. Scanned PDFs and images remain private and are marked as requiring OCR; no external OCR provider is called. OCR remains disabled pending privacy/vendor/cost approval.
-- Extraction quality is reported as a heuristic status, not a calibrated confidence probability.
-- Only multiple-choice draft generation is implemented.
-- Approved AI drafts remain in the private generated-question library; they are not yet merged into the trusted curated question bank or Tonight's 20.
-- Usage char counts are recorded after provider completion; quota reservation is atomic before the provider call. Token-level spend is not tracked.
-- Automated tests validate database quota accounting and isolation; Edge Function runtime/provider integration still requires deployment to a disposable local/preview Supabase Edge Runtime and fake/mock provider.
+- No AI provider secrets are configured; no paid provider request has been made.
+- OCR for images and scanned PDFs is not implemented. These uploads remain private and are marked low-confidence; no external OCR service is called.
+- Extraction quality is represented by explicit status metadata, not a calibrated numeric confidence score.
+- Automatic classification of arbitrary extracted text is not active. The current allowlist validates learner-selected subject/grade/topic metadata against the starter practice map; it does not prove that arbitrary source text belongs to that topic.
+- Only multiple-choice question drafts are scaffolded. Worked-example generation, revision plans and a grounded conversational study assistant are not active.
+- Provider integration and model-quality evaluation remain unverified because the provider is intentionally disabled.
+- The daily quota is atomic, but token-level spend accounting and provider/gateway rate limits still require vendor-side configuration.
+- Approved drafts remain in the private generated-question library; they are not automatically merged into the trusted curated question bank or Tonight's 20.
+
+## Release boundary
+
+This document describes a development-branch design. No production Edge Function deployment, live Supabase migration, provider secret configuration, OCR vendor connection, paid request, GitHub Pages deployment or main merge is authorised by this work. Each requires separate explicit approval.
