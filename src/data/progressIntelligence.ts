@@ -37,7 +37,7 @@ export function analyseProgress(
       attempts: rows.length,
       correct: rows.filter(row => row.correct).length,
       accuracy,
-      lastAttemptAt: rows.at(-1)?.t ?? 0,
+      lastAttemptAt: rows.length ? rows[rows.length - 1].t : 0,
       evidenceStatus: rows.length < 3 ? 'insufficient-sample' as const : accuracy < 80 ? 'developing' as const : 'steady' as const,
     }
   })
