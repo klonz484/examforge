@@ -4,30 +4,9 @@ import type { User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from './supabase'
 import { Button, Dialog, Navigation, TextField } from './components/ui'
 import { CAPS_SUBJECTS, searchCapsSubjects, type CapsSubject } from './data/capsSubjects'
+import { selectPracticeQuestions, type PracticeQuestion } from './data/practiceQuestions'
 
 type Tab = 'Dashboard' | 'Past Papers' | 'Upload Notes' | 'Progress'
-type Question = { prompt: string; options: string[]; answer: number; explanation: string; topic: string }
-const SCIENCE_QUESTIONS: Question[] = [
-  { prompt: 'A block rests on a frictionless inclined plane at angle θ. What is the component of its weight perpendicular to the plane?', options: ['mg sin θ', 'mg cos θ', 'mg tan θ', 'mg'], answer: 1, explanation: 'Resolve the weight into components. The perpendicular component is mg cos θ, balanced by the normal force N.', topic: 'Mechanics' },
-  { prompt: 'Which equation relates potential difference, current and resistance for an ohmic conductor?', options: ['P = VI', 'V = IR', 'Q = It', 'E = mc²'], answer: 1, explanation: 'Ohm’s law states that V = IR when physical conditions remain constant.', topic: 'Electricity' },
-  { prompt: 'What is the SI unit of electric charge?', options: ['Ampere', 'Volt', 'Coulomb', 'Ohm'], answer: 2, explanation: 'Electric charge is measured in coulombs (C). Current is the rate of flow of charge.', topic: 'Electricity' },
-  { prompt: 'A wave has frequency 5 Hz and wavelength 2 m. What is its speed?', options: ['2.5 m·s⁻¹', '7 m·s⁻¹', '10 m·s⁻¹', '20 m·s⁻¹'], answer: 2, explanation: 'Use v = fλ = 5 × 2 = 10 m·s⁻¹.', topic: 'Waves' },
-  { prompt: 'Which statement describes an exothermic reaction?', options: ['Heat is absorbed from surroundings', 'Temperature must decrease', 'Energy is released to surroundings', 'No energy change occurs'], answer: 2, explanation: 'An exothermic reaction releases energy, usually as heat, to its surroundings.', topic: 'Chemical Change' },
-  { prompt: 'A 2 kg trolley moves at 3 m·s⁻¹. What is its momentum?', options: ['1.5 kg·m·s⁻¹', '5 kg·m·s⁻¹', '6 kg·m·s⁻¹', '9 kg·m·s⁻¹'], answer: 2, explanation: 'Momentum p = mv = 2 × 3 = 6 kg·m·s⁻¹.', topic: 'Momentum & Impulse' },
-  { prompt: 'A 10 N force moves an object 3 m in the direction of the force. How much work is done?', options: ['3.3 J', '13 J', '30 J', '300 J'], answer: 2, explanation: 'W = FΔx cos θ = 10 × 3 × cos 0° = 30 J.', topic: 'Energy & Work' },
-  { prompt: 'How many moles are in 36 g of water? (M = 18 g·mol⁻¹)', options: ['0.5 mol', '2 mol', '18 mol', '648 mol'], answer: 1, explanation: 'n = m/M = 36 ÷ 18 = 2 mol.', topic: 'Stoichiometry' },
-  { prompt: 'Which functional group is present in an alcohol?', options: ['–COOH', '–OH', '–NH₂', '–CHO'], answer: 1, explanation: 'Alcohols contain the hydroxyl group (–OH) attached to a carbon chain.', topic: 'Organic Chemistry' },
-]
-const MATHS_QUESTIONS: Question[] = [
-  { prompt: 'Solve x² − 5x + 6 = 0.', options: ['x = 2 or x = 3', 'x = −2 or x = −3', 'x = 1 or x = 6', 'x = −1 or x = 6'], answer: 0, explanation: 'Factorise: (x − 2)(x − 3) = 0, so x = 2 or x = 3.', topic: 'Algebra' },
-  { prompt: 'What is the turning point of y = (x − 2)² + 3?', options: ['(2 ; 3)', '(−2 ; 3)', '(2 ; −3)', '(3 ; 2)'], answer: 0, explanation: 'For y = a(x − p)² + q the turning point is (p ; q) = (2 ; 3).', topic: 'Functions' },
-  { prompt: 'What does sin²θ + cos²θ equal?', options: ['0', '1', '2', 'tan θ'], answer: 1, explanation: 'This is the Pythagorean identity: sin²θ + cos²θ = 1.', topic: 'Trigonometry' },
-  { prompt: 'Determine f′(x) if f(x) = x³.', options: ['3x²', 'x²', '3x', 'x⁴ ÷ 4'], answer: 0, explanation: 'Power rule: d/dx (xⁿ) = nxⁿ⁻¹, so f′(x) = 3x².', topic: 'Calculus' },
-  { prompt: 'The angle subtended by an arc at the centre of a circle is ___ the angle it subtends at the circumference.', options: ['half', 'equal to', 'twice', 'three times'], answer: 2, explanation: 'Angle at the centre = 2 × angle at the circumference (same arc).', topic: 'Euclidean Geometry' },
-  { prompt: 'What is the gradient of the line through (1 ; 2) and (3 ; 6)?', options: ['1', '2', '4', '½'], answer: 1, explanation: 'm = (y₂ − y₁) ÷ (x₂ − x₁) = (6 − 2) ÷ (3 − 1) = 2.', topic: 'Analytical Geometry' },
-  { prompt: 'In the arithmetic sequence 3 ; 7 ; 11 ; … what is the 10th term?', options: ['39', '43', '40', '36'], answer: 0, explanation: 'Tₙ = a + (n − 1)d = 3 + 9 × 4 = 39.', topic: 'Sequences & Series' },
-  { prompt: 'R1 000 is invested at 10% p.a. compound interest for 2 years. What is the final amount?', options: ['R1 200', 'R1 210', 'R1 100', 'R1 220'], answer: 1, explanation: 'A = P(1 + i)ⁿ = 1 000 × 1.1² = R1 210.', topic: 'Finance & Growth' },
-]
 const TOPICS: Record<string, string[]> = {
   'Physical Science': ['Mechanics', 'Electricity', 'Waves', 'Chemical Change', 'Organic Chemistry', 'Stoichiometry', 'Momentum & Impulse', 'Energy & Work'],
   'Mathematics': ['Algebra', 'Functions', 'Trigonometry', 'Calculus', 'Euclidean Geometry', 'Analytical Geometry', 'Sequences & Series', 'Finance & Growth'],
@@ -38,7 +17,7 @@ const papers = [
   { year: '2024', title: 'Physical Science Paper 2', subtitle: 'Chemistry · DBE November', tags: ['Organic', 'Stoichiometry'], level: 'Medium' },
   { year: '2024', title: 'Mathematics Paper 1', subtitle: 'Algebra · Functions', tags: ['Algebra', 'Functions'], level: 'Medium' },
 ]
-const REWIND_SECONDS = 420
+const REWIND_SECONDS = 20 * 60
 const ALLOWED_NOTE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 const MAX_NOTE_BYTES = 10 * 1024 * 1024
 
@@ -62,15 +41,6 @@ function computeStreak(dates: string[]) {
   while (set.has(localDate(d))) { n++; d.setDate(d.getDate() - 1) }
   return n
 }
-// Weak topics first, then the rest, 5 questions total.
-function pickQuestions(subject: string, weak: string[]): Question[] {
-  const pool = subject === 'Mathematics' ? MATHS_QUESTIONS : SCIENCE_QUESTIONS
-  const shuffled = [...pool].sort(() => Math.random() - 0.5)
-  const weakQs = shuffled.filter(q => weak.includes(q.topic))
-  const rest = shuffled.filter(q => !weak.includes(q.topic))
-  return [...weakQs, ...rest].slice(0, 5)
-}
-
 function App() {
   const [tab, setTab] = useState<Tab>('Dashboard')
   const [theme, setTheme] = useState<'dark' | 'light'>(() => load<'dark' | 'light'>('ef:theme', 'dark'))
@@ -81,7 +51,7 @@ function App() {
   const [grade, setGrade] = useState('12')
   const [examDate, setExamDate] = useState(() => dateAfterDays(20))
   const [weak, setWeak] = useState<string[]>([])
-  const [sessionQs, setSessionQs] = useState<Question[]>([])
+  const [sessionQs, setSessionQs] = useState<PracticeQuestion[]>([])
   const [questionIndex, setQuestionIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [answers, setAnswers] = useState<number[]>([])
