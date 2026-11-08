@@ -160,8 +160,8 @@ test('Supabase study data and private notes enforce per-account access', async (
 
 test('signed-in learner can recover a cloud session after sign-out and sign-in', async ({ page }) => {
   const account = client()
-  // Account B is reserved for recovery; Account A is used by the preceding
-  // data-isolation test, which completes a session for the day.
+  // Account C is reserved for recovery; A and B are used by the separate
+  // data-isolation test. This prevents concurrent tests sharing daily state.
   const signedIn = await account.auth.signInWithPassword({ email: emailC!, password: passwordC! })
   expect(signedIn.error).toBeNull()
   const userId = signedIn.data.user!.id
@@ -210,8 +210,8 @@ test('signed-in learner can recover a cloud session after sign-out and sign-in',
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /Account \/ sign in/ }).click()
   await page.getByRole('button', { name: /Already have an account\? Sign in/ }).click()
-  await page.getByLabel('Email address').fill(emailA!)
-  await page.getByLabel('Password').fill(passwordA!)
+  await page.getByLabel('Email address').fill(emailC!)
+  await page.getByLabel('Password').fill(passwordC!)
   await page.getByRole('button', { name: 'Sign in' }).click()
 
   await expect(page.getByRole('button', { name: /Resume saved session/ })).toBeVisible()
