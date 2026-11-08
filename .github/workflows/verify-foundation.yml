@@ -95,6 +95,8 @@ jobs:
             echo "E2E_TEST_PASSWORD_A=ExamForgeLocalTest-A!2026"
             echo "E2E_TEST_EMAIL_B=learner-b@examforge.local"
             echo "E2E_TEST_PASSWORD_B=ExamForgeLocalTest-B!2026"
+            echo "E2E_TEST_EMAIL_C=learner-c@examforge.local"
+            echo "E2E_TEST_PASSWORD_C=ExamForgeLocalTest-C!2026"
           } >> "$GITHUB_ENV"
       - name: Create disposable local learner accounts
         run: node tests/setup-local-supabase.mjs
