@@ -130,19 +130,6 @@ Deno.serve(async request => {
     return json(400, { error: "Provide a valid Grade 10–12 subject, topic, and 100–8,000 characters of study text." }, origin)
   }
 
-  // The quota is reserved atomically before the provider is called.
-  const { data: allowed, error: quotaError } = await adminClient.rpc("reserve_ai_study_request", {
-    p_user_id: learner.id,
-    p_daily_limit: 5,
-  })
-  if (quotaError) {
-    console.error("AI quota reservation failed:", quotaError.message)
-    return json(503, { error: "AI usage controls are temporarily unavailable. Try again later." }, origin)
-  }
-  if (allowed !== true) {
-    return json(429, { error: "You have reached today's AI question-draft limit. You can continue using ordinary practice." }, origin)
-  }
-
   const { data: enrolled, error: enrolmentError } = await learnerClient
     .from("learner_subjects")
     .select("subject_id")
@@ -155,6 +142,19 @@ Deno.serve(async request => {
   }
   if (!enrolled) {
     return json(403, { error: "Choose a subject in your learner library before generating a question." }, origin)
+  }
+
+  // The quota is reserved atomically before the provider is called.
+  const { data: allowed, error: quotaError } = await adminClient.rpc("reserve_ai_study_request", {
+    p_user_id: learner.id,
+    p_daily_limit: 5,
+  })
+  if (quotaError) {
+    console.error("AI quota reservation failed:", quotaError.message)
+    return json(503, { error: "AI usage controls are temporarily unavailable. Try again later." }, origin)
+  }
+  if (allowed !== true) {
+    return json(429, { error: "You have reached today's AI question-draft limit. You can continue using ordinary practice." }, origin)
   }
 
   const systemPrompt = [
