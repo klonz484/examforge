@@ -107,3 +107,19 @@ Phase 0 (Foundation stabilisation) has met its documented exit criteria on the f
 - Open PR #1 (reuse-first contribution workflow) remains separate and unmerged; no action on it is required to complete this foundation-branch baseline. Review/merge decisions remain separate from this work.
 
 **Phase 0 status: COMPLETE on the foundation branch.** This does not mean the feature branch is merged or deployed. Manual accessibility validation, staging database/RLS tests, and production release checks remain assigned to later phases and their explicit exit criteria.
+
+
+## 9. Phase 1 completion evidence — 8 November 2026
+
+Phase 1 has met its automated exit criteria on `foundation/examforge-foundation-2`; this is not production release approval.
+
+- Implementation is proposed in [PR #3](https://github.com/klonz484/examforge/pull/3), still open and unmerged.
+- Successful full verification: [run 42445416667](https://github.com/klonz484/examforge/actions/runs/42445416667), head `ef4894e181fa1215e6df95e77118629fb2807f29`.
+- Disposable PostgreSQL 16 migration/RLS integration step passed.
+- TypeScript and production build passed.
+- Playwright suite passed **54 tests** with **4 skipped**. Skips are guarded tests requiring explicitly configured disposable Supabase staging credentials; no live Supabase credentials or data were used.
+- Verified deliverables include the CAPS catalogue/status distinctions, unlimited onboarding subject selection, seven fixed dashboard slots and expandable All subjects, unrestricted daily selection, additive learner-subject schema/backfill/RLS/transactional RPC, account-scoped persistence and guest-to-new-account handling, and theme keyboard/reload coverage.
+- Manual physical Android screen-reader/assistive-technology audit remains for Phase 6.
+- The migration is not applied to live Supabase. No production merge or Pages deployment occurred.
+
+**Phase 1: COMPLETE on the foundation branch only.** Proceed with Phase 2 on a later run; retain PR #3 open for review and do not merge without explicit approval.
