@@ -84,3 +84,19 @@ test('AI draft validation rejects unsupported evidence and duplicate answer opti
   })
   expect(() => parseQuestionDraft(duplicate, sourceText)).toThrow(/distinct/)
 })
+
+test('AI drafting stays disabled in the learner UI until explicit owner approval', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/examforge/')
+  const future = new Date()
+  future.setDate(future.getDate() + 30)
+  const date = [future.getFullYear(), String(future.getMonth() + 1).padStart(2, '0'), String(future.getDate()).padStart(2, '0')].join('-')
+  await page.locator('input[type="date"]').fill(date)
+  await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
+  await page.getByRole('button', { name: 'Electricity', exact: true }).click()
+  await page.getByRole('button', { name: /Start Forging/ }).click()
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Upload' }).click()
+
+  await expect(page.getByText(/AI drafting is disabled until the project owner/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'AI provider not enabled' })).toBeDisabled()
+})
