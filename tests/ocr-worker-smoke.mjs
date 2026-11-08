@@ -101,7 +101,7 @@ try {
     throw new Error("Afrikaans traineddata did not recognise the synthetic phrase: " + JSON.stringify(afrikaansPayload))
   }
 
-  const equationImage = syntheticImage("F = m x a", "/tmp/examforge-ocr-equation.png")
+  const equationImage = syntheticImage("F = m a", "/tmp/examforge-ocr-equation.png")
   const equationResponse = await postOcr(equationImage, "eng")
   if (!equationResponse.ok) throw new Error("Worker equation OCR failed: " + await equationResponse.text())
   const equationPayload = await equationResponse.json()
