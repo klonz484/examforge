@@ -141,12 +141,12 @@ Deno.serve(async request => {
       if (imageBytes.byteLength < 1 || imageBytes.byteLength > MAX_NOTE_BYTES) throw new Error("The image size is outside the allowed range.")
       const ocr = await runConfiguredOcr(imageBytes, String(note.mime_type))
       if (!ocr) {
-        const metadata = { kind: "image", requiresOcr: true, qualityStatus: "ocr-disabled", confidenceStatus: "not-assessed" }
+        const metadata = { kind: "image", requiresOcr: true, qualityStatus: "not-extracted", confidenceStatus: "not-assessed" }
         await adminClient.from("note_uploads").update({
           processing_status: "low_confidence", extraction_confidence: null, extracted_text: null,
           extraction_error: "Image OCR is disabled. No external OCR provider was called.", extraction_metadata: metadata,
         }).eq("id", note.id).eq("user_id", learner.id)
-        return response(422, { status: "low_confidence", metadata, error: "This image is stored privately, but non-production OCR is disabled. No external OCR service was called." }, origin)
+        return response(422, { status: "low_confidence", metadata, error: "This image is stored privately, but OCR is not enabled. No external OCR provider was called." }, origin)
       }
       const extractedText = buildOcrReviewText(ocr)
       const usable = hasUsableStudyText(ocr.text)
