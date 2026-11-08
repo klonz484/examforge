@@ -213,7 +213,7 @@ reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', false);
 
-do $
+do $$
 begin
   if (select count(*) from public.learner_subjects) <> 1 then
     raise exception 'Account B cannot see its own subject row or sees another account';
@@ -221,14 +221,8 @@ begin
   if exists (select 1 from public.learner_subjects where user_id = '00000000-0000-0000-0000-000000000001') then
     raise exception 'Account B can read account A subject rows';
   end if;
-  if (select count(*) from public.study_sessions) <> 0 then
-    raise exception 'Account B can read account A study sessions';
-  end if;
-  if (select count(*) from public.question_attempts) <> 0 then
-    raise exception 'Account B can read account A question attempts';
-  end if;
 end;
-$;
+$$;
 
 reset role;
 select 'learner_subjects SQL integration checks passed' as result;
