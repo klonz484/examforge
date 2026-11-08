@@ -24,8 +24,8 @@ test('learner can enrol in more than seven subjects and use the full library', a
   expect(await page.locator('.all-subject-row').count()).toBeGreaterThan(30)
 
   await page.getByLabel("Choose today's study subject").selectOption('accounting')
-  await page.getByRole('button', { name: 'Start 7-minute Rewind' }).click()
-  await expect(page.getByText(/Question content for this subject is not available yet/)).toBeVisible()
+  await page.getByRole('button', { name: /Start Tonight/ }).click()
+  await expect(page.getByText(/Verified starter questions are not available for Accounting, Grade 12/)).toBeVisible()
 })
 
 test('dashboard keeps seven fixed positions even when fewer subjects are enrolled', async ({ page }) => {
