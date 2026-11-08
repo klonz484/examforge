@@ -285,7 +285,7 @@ test('Supabase study data and private notes enforce per-account access', async (
   const disabledContext = (disabledDraft.error as { context?: Response }).context
   if (disabledContext) {
     const disabledBody = await disabledContext.clone().json()
-    expect(String(disabledBody.error)).toContain('credentials have not been configured')
+    expect(String(disabledBody.error)).toContain('AI provider activation is disabled')
   }
 
   const ownNote = await accountA.from('note_uploads').select('id').eq('id', note.data!.id)
