@@ -240,33 +240,6 @@ function App() {
         save(userStorageKey(userId, 'attempts'), hydratedAttempts)
       }
       const { data: reviewRows, error: reviewError } = await client.from('flashcard_reviews')
-        .select('question_id,interval_days,ease_factor,repetitions,last_grade,last_reviewed_at,next_review_at')
-        .eq('user_id', userId)
-      if (active && !reviewError && reviewRows) {
-        const localReviews = load<Record<string, FlashcardReview>>(userStorageKey(userId, 'flashcard-reviews'), {})
-        const remoteReviews = (reviewRows as Array<{
-          question_id: string; interval_days: number; ease_factor: number; repetitions: number;
-          last_grade: number | null; last_reviewed_at: string | null; next_review_at: string; updated_at: string;
-        }>).reduce<Record<string, FlashcardReviewState>>((result, row) => {
-          result[row.question_id] = {
-            question_id: row.question_id,
-            interval_days: Number(row.interval_days),
-            ease_factor: Number(row.ease_factor),
-            repetitions: Number(row.repetitions),
-            last_grade: row.last_grade == null ? null : Number(row.last_grade) as ReviewGrade,
-            last_reviewed_at: row.last_reviewed_at,
-            next_review_at: row.next_review_at,
-            updated_at: row.updated_at,
-          }
-          return result
-        }, {})
-        const mergedReviews = { ...localReviews, ...remoteReviews }
-        setFlashcardReviews(mergedReviews)
-        save(userStorageKey(userId, 'flashcard-reviews'), mergedReviews)
-      } else if (active && reviewError) {
-        console.warn('Could not load cloud flashcard reviews:', reviewError.message)
-      }
-      const { data: reviewRows, error: reviewError } = await client.from('flashcard_reviews')
         .select('question_id,interval_days,ease_factor,repetitions,last_grade,last_reviewed_at,next_review_at,updated_at')
         .eq('user_id', userId)
       if (!active) return
