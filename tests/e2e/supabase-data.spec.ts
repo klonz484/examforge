@@ -154,3 +154,61 @@ test('Supabase study data and private notes enforce per-account access', async (
   await accountA.auth.signOut()
   await accountB.auth.signOut()
 })
+
+
+test('signed-in learner can recover a cloud session after sign-out and sign-in', async ({ page }) => {
+  const account = client()
+  const signedIn = await account.auth.signInWithPassword({ email: emailA!, password: passwordA! })
+  expect(signedIn.error).toBeNull()
+  const userId = signedIn.data.user!.id
+
+  // This is a disposable staging account. Give it a known, supported study setup.
+  const oldSessions = await account.from('study_sessions').update({ status: 'abandoned' })
+    .eq('user_id', userId).eq('status', 'in_progress')
+  expect(oldSessions.error).toBeNull()
+  const future = new Date()
+  future.setDate(future.getDate() + 30)
+  const date = future.toISOString().slice(0, 10)
+  const setup = await account.rpc('save_learner_onboarding', {
+    p_grade: 12, p_exam_date: date, p_primary_subject: 'Mathematics',
+    p_weak_topics: ['Algebra', 'Functions'], p_subject_ids: ['mathematics'],
+  })
+  expect(setup.error).toBeNull()
+  await account.auth.signOut()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear() })
+  await page.goto('/examforge/')
+  await page.locator('input[type="date"]').fill(date)
+  await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
+  await page.getByRole('button', { name: 'Electricity', exact: true }).click()
+  await page.getByRole('button', { name: /Start Forging/ }).click()
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('button', { name: /Account \/ sign in/ }).click()
+  await page.getByRole('button', { name: /Already have an account\? Sign in/ }).click()
+  await page.getByLabel('Email address').fill(emailA!)
+  await page.getByLabel('Password').fill(passwordA!)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+
+  await expect(page.getByRole('button', { name: /Start Tonight/ })).toBeVisible()
+  await page.getByRole('button', { name: /Start Tonight/ }).click()
+  await page.locator('.answer-option').nth(3).click()
+  await page.getByRole('button', { name: 'Save & exit' }).click()
+
+  // Remove the device copy to prove recovery comes from the account-owned row.
+  await page.evaluate((id) => localStorage.removeItem(`ef:${id}:active-session`), userId)
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('button', { name: /Account \/ sign in/ }).click()
+  await page.getByRole('button', { name: /Already have an account\? Sign in/ }).click()
+  await page.getByLabel('Email address').fill(emailA!)
+  await page.getByLabel('Password').fill(passwordA!)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+
+  await expect(page.getByRole('button', { name: /Resume saved session/ })).toBeVisible()
+  await page.getByRole('button', { name: /Resume saved session/ }).click()
+  await expect(page.locator('.answer-option').nth(3)).toHaveClass(/picked/)
+  await page.getByRole('button', { name: 'Abandon this session' }).click()
+  await account.auth.signOut()
+})
