@@ -105,3 +105,27 @@
 :root[data-theme="light"] .archive-card{background:#fff;color:#1c2735;border-color:#d8dee8}
 :root[data-theme="light"] .archive-counts span{background:#f3f6fa;color:#586577;border-color:#d8dee8}
 @media(max-width:420px){.roadmap-topic-list{grid-template-columns:1fr}.archive-grid{grid-template-columns:1fr}}
+
+
+/* Mistake notebook spaced-review experience */
+.mistake-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.review-status{border-radius:30px;padding:4px 7px;font-size:9px;font-weight:800;white-space:nowrap}
+.review-status.due{color:#ffb37e;background:#392012;border:1px solid #80502e}
+.review-status.scheduled{color:#8fc4ff;background:#13283c;border:1px solid #315777}
+.review-overlay{position:fixed;inset:0;z-index:30;background:#05080dcc;display:grid;place-items:center;padding:18px}
+.review-card{width:min(100%,560px);max-height:min(90vh,740px);overflow:auto;border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:20px;box-shadow:0 20px 70px #0008}
+.review-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.review-card h2{font:600 21px/1.4 'Space Grotesk',sans-serif;margin:12px 0 22px}
+.review-answer{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:14px;margin-bottom:14px}
+.review-answer b{font-size:12px;color:var(--orange)}
+.review-answer p{font-size:13px;line-height:1.5;margin:6px 0 14px}
+.review-answer p:last-child{margin-bottom:0}
+.review-grade-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.review-grade-actions button{border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:12px 5px;font-size:12px;font-weight:800}
+.review-grade-actions button:focus-visible,.review-card button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+:root[data-theme="light"] .review-overlay{background:#1b273766}
+:root[data-theme="light"] .review-card{background:#fff;color:#1c2735;border-color:#d8dee8}
+:root[data-theme="light"] .review-answer{background:#f3f6fa;border-color:#d8dee8}
+:root[data-theme="light"] .review-status.due{color:#8e3900;background:#fff0e4;border-color:#f0c5a5}
+:root[data-theme="light"] .review-status.scheduled{color:#155a90;background:#e9f4ff;border-color:#bad9f3}
+@media(max-width:390px){.review-grade-actions{grid-template-columns:repeat(2,1fr)}}
