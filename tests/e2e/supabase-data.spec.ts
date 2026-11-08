@@ -291,7 +291,35 @@ test('signed-in learner can recover a cloud session after sign-out and sign-in',
   await expect(page.getByLabel("Choose today's study subject")).toHaveValue('mathematics')
   await expect(page.getByRole('button', { name: /Start Tonight/ })).toBeVisible()
   await page.getByRole('button', { name: /Start Tonight/ }).click()
+  await page.context().setOffline(true)
   await page.locator('.answer-option').nth(3).click()
+  await expect(page.locator('.answer-option').nth(3)).toHaveClass(/picked/)
+  await expect.poll(async () => page.evaluate(id => {
+    const raw = localStorage.getItem(`ef:${id}:pending-answer-sync`)
+    return raw ? JSON.parse(raw).length : 0
+  }, userId)).toBe(1)
+
+  // Reconnect and prove the queued answer is replayed into the account-owned DB row.
+  await page.context().setOffline(false)
+  await expect.poll(async () => page.evaluate(id => {
+    const raw = localStorage.getItem(`ef:${id}:pending-answer-sync`)
+    return raw ? JSON.parse(raw).length : 0
+  }, userId)).toBe(0)
+
+  const syncedSession = await account.from('study_sessions')
+    .select('id,subject_id,grade')
+    .eq('user_id', userId).eq('status', 'in_progress')
+    .order('started_at', { ascending: false }).limit(1).single()
+  expect(syncedSession.error).toBeNull()
+  const syncedAnswer = await account.from('question_attempts')
+    .select('question_id,subject_id,grade,is_correct')
+    .eq('study_session_id', syncedSession.data.id)
+  expect(syncedAnswer.error).toBeNull()
+  expect(syncedAnswer.data).toHaveLength(1)
+  expect(syncedAnswer.data![0]).toMatchObject({
+    question_id: 'math-g12-algebra-001', subject_id: 'mathematics', grade: 12, is_correct: false,
+  })
+
   await page.getByRole('button', { name: 'Save & exit' }).click()
 
   // Remove the device copy to prove recovery comes from the account-owned row.
