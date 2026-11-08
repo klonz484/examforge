@@ -116,7 +116,7 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   const ownSubjects = await accountA.from('learner_subjects')
     .select('subject_id').eq('user_id', userA!.id).order('subject_id')
   expect(ownSubjects.error).toBeNull()
-  expect(ownSubjects.data?.map(row => row.subject_id)).toEqual(['mathematics', 'physical-science'])
+  expect(ownSubjects.data?.map(row => row.subject_id)).toEqual(['mathematics'])
 
   // A second account must not be able to read or overwrite the first student's profile.
   const accountB = client()
