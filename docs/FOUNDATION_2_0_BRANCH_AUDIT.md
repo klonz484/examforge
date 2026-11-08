@@ -203,3 +203,12 @@ These require owner/legal/device access or approved live-service configuration. 
 - The merge did not deploy GitHub Pages, apply live Supabase migrations, configure production secrets, or activate paid providers.
 - The foundation branch is one commit behind the newly updated `main` because PR #3 used squash merge; its content changes remain on the branch. Reconcile branch ancestry before opening another integration PR; do not duplicate or re-port the merged work.
 - Phase 5 remains partial pending owner approval for AI/OCR vendor, privacy/POPIA and data-processing terms, retention/region/subprocessors, hard spend limits and monitoring. Phase 6 manual/device/legal/operational work remains open.
+
+
+## 15. Phase 5 owner decision and research — 8 November 2026
+
+- Owner selected OpenAI API and Tesseract OCR, proposed maximum R500/month, and authorised research only.
+- Created [`docs/PHASE_5_PROVIDER_RESEARCH.md`](./PHASE_5_PROVIDER_RESEARCH.md) with official pricing/model review, local OCR architecture, POPIA/minor/cross-border findings, cost-control design and activation blockers.
+- No code/provider integration was changed; no credentials, provider requests, paid services, live learner data or production systems were used.
+- Recommended candidate model `gpt-6-luna` is provisional only; must pass subject-specific evaluation before any later activation. Tesseract local deployment is also provisional pending runtime and language/math quality benchmarks.
+- Phase 5 status is research complete, implementation not authorised. Phase 6 remains incomplete.
