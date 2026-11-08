@@ -90,9 +90,11 @@ async function processFile(bytes, mimeType, languages) {
       const textResult = await command("tesseract", [normalized, "stdout", "-l", languages, "--oem", "1", "--psm", "3"], deadline)
       textPages.push("[Page " + (index + 1) + "]\n" + textResult.stdout)
 
-      // A separate high-resolution, character-preserving pass targets simple
-      // printed linear formulas. It is best-effort OCR, not symbolic parsing.
-      const equationResult = await command("tesseract", [normalized, "stdout", "-l", "eng", "--oem", "1", "--psm", "6", "-c", "preserve_interword_spaces=1"], deadline)
+      // A separate formula pass avoids aggressive deskewing, which can merge
+      // adjacent mathematical glyphs. This is best-effort OCR, not symbolic parsing.
+      const equationInput = path.join(dir, "equation-" + index + ".png")
+      await command("convert", [images[index], "-auto-orient", "-colorspace", "Gray", "-resize", "200%", "-contrast", equationInput], deadline)
+      const equationResult = await command("tesseract", [equationInput, "stdout", "-l", "eng", "--oem", "1", "--psm", "6", "-c", "preserve_interword_spaces=1"], deadline)
       equationPages.push("[Page " + (index + 1) + "]\n" + equationResult.stdout)
     }
     const text = cleanText(textPages.join("\n\n"))
