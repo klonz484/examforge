@@ -38,14 +38,39 @@ test('Supabase study data and private notes enforce per-account access', async (
 
   const marker = randomUUID()
   const session = await accountA.from('study_sessions').insert({
-    subject: `E2E Test ${marker}`,
-    session_type: 'rewind',
-    duration_seconds: 42,
-    score: 1,
+    subject: 'Mathematics',
+    subject_id: 'mathematics',
+    grade: 12,
+    session_type: 'practice',
+    status: 'in_progress',
+    source_label: 'ExamForge original practice',
+    session_state: { questionIndex: 0, answers: [] },
+    duration_seconds: 0,
     total_questions: 1,
+    completed_at: null,
   }).select('id').single()
   expect(session.error).toBeNull()
   expect(session.data?.id).toBeTruthy()
+
+  const answerSave = await accountA.rpc('record_study_answer', {
+    p_session_id: session.data!.id,
+    p_question_id: 'math-g12-algebra-001',
+    p_topic: `E2E Test ${marker}`,
+    p_question_position: 0,
+    p_response: { selected: 0 },
+    p_is_correct: true,
+    p_session_state: { questionIndex: 1, answers: [0] },
+    p_duration_seconds: 42,
+  })
+  expect(answerSave.error).toBeNull()
+  const completion = await accountA.rpc('complete_study_session', {
+    p_session_id: session.data!.id,
+    p_session_state: { questionIndex: 1, answers: [0], completed: true },
+    p_duration_seconds: 42,
+    p_score: 1,
+    p_total_questions: 1,
+  })
+  expect(completion.error).toBeNull()
 
   const attempt = await accountA.from('question_attempts').insert({
     source_type: 'seed',
