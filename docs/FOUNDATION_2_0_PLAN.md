@@ -372,3 +372,36 @@ The Phase 1 implementation and documented exit criteria have been verified on th
 - Four optional staging-Supabase E2E tests remain skipped until a disposable staging project is explicitly configured. Do not run destructive test-account workflows against production.
 
 **Phase 1 status: COMPLETE on the foundation branch.** The next implementation phase is Phase 2 — Complete the Tonight's 20 learning loop.
+
+
+## 12. Phase 2 implementation and verification update — 8 November 2026
+
+### Tonight's 20 learning loop — implementation delivered; final exit gate pending
+
+**Implemented on `foundation/examforge-foundation-2`:**
+- Added a structured, stable-ID starter question bank for Grade 12 Mathematics and Physical Sciences. Every question records grade, subject ID, topic, answer, explanation, source label and provenance. The content is explicitly labelled **ExamForge original practice** and **not an official DBE question or past-paper extract**.
+- Replaced the former short Rewind flow with a 20-minute focus target. Learners may finish earlier; the timer does not force them to remain in the session.
+- Added answer marking and immediate explanations, plus a completion summary.
+- Added save-and-exit, local recovery snapshots, resume after reload, and explicit abandon behaviour.
+- Added account-owned cloud session creation, atomic answer/attempt persistence, and completion RPCs. Attempts link to stable question IDs and session positions; repeated answer writes are idempotent.
+- Added an additive session migration preserving the legacy completed-session timestamp default and existing historical rows. It adds session status/state, grade/subject/source metadata, question-attempt links, own-account update RLS and invoker RPCs.
+- Added a persistent mistake notebook sourced from recorded incorrect attempts. Progress is labelled **accuracy**, not mastery.
+- Corrected subject resolution so unsupported enrolled subjects cannot accidentally receive another subject's question bank; unsupported content is explicitly disclosed.
+- Restored guest learner setup, session history and attempts after reload.
+
+**Automated verification evidence**
+- [Foundation verification run 42447976494](https://github.com/klonz484/examforge/actions/runs/42447976494) passed on head `ad8e3470667a975adea413251cc4c57969b803dc`.
+- Disposable PostgreSQL 16 learner-subject migration/RLS test passed.
+- Disposable PostgreSQL 16 recoverable-session/answer RPC test passed, including idempotent answer replay, completion persistence and cross-account read/write isolation.
+- TypeScript and production build passed.
+- Playwright across Chromium, Firefox and WebKit: **63 passed, 7 skipped**.
+- The browser journey verifies start, answer, explanation, save/exit, reload, resume, completion, and saved mistake review.
+- The separate guarded Supabase end-to-end tests, including cloud sign-out/sign-in recovery, were skipped because an explicitly designated disposable Supabase staging environment and credentials are not configured. Their presence in the suite is not counted as executed verification.
+
+**Known content and release limits**
+- The starter question bank currently supports Grade 12 Mathematics and Physical Sciences only. Other grades and subjects remain visibly unavailable rather than being served mismatched questions. Expanding and verifying curriculum coverage remains subsequent curriculum/content work.
+- The starter questions are original ExamForge practice, not official DBE past-paper material. Official paper/memo ingestion and provenance checks remain Phase 3.
+- Migration `003_recoverable_study_sessions.sql` has passed disposable CI PostgreSQL testing only. It has not been applied to the connected live Supabase project.
+- PR #3 remains open and unmerged. No main merge, GitHub Pages deployment or live database write occurred.
+
+**Phase 2 status: IMPLEMENTATION DELIVERED; EXIT GATE OPEN.** Before closing Phase 2, execute the guarded Supabase auth/session round-trip test against a disposable staging project. Do not use live Supabase for this test without explicit user approval. Once that test passes, update this status to complete and proceed to Phase 3.
