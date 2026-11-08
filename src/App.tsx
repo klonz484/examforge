@@ -716,7 +716,7 @@ function App() {
         </section>
         <div className="section-heading"><div><h2>Official DBE exam archives</h2><p className="muted">Grade 12 NSC papers and memos · archive pages, not copied PDFs.</p></div></div>
         <div className="searchbox"><Search size={18}/><input placeholder="Search official archives…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search official paper archives"/><Settings2 size={18}/></div>
-        <div className="filter-row">{['All','Mathematics','Physical Science','2025','2024'].map(f=><button className={`filter ${filter===f?'active':''}`} onClick={()=>setFilter(f)} key={f}>{f}</button>)}</div>
+        <div className="filter-row">{['All','Mathematics','Physical Science','2026','2025','2024'].map(f=><button className={`filter ${filter===f?'active':''}`} onClick={()=>setFilter(f)} key={f}>{f}</button>)}</div>
         <h3 className="subheading">{filteredArchives.length} verified archive entries</h3>
         <div className="archive-grid">{filteredArchives.map(item=><article className="archive-card" key={item.id}>
           <div className="archive-card-top"><span className="paper-year">{item.year}</span><span className="tag">{item.sitting}</span></div>
