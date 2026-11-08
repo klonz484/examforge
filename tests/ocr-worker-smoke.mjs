@@ -32,6 +32,9 @@ try {
   const unsupported = await fetch("http://127.0.0.1:" + port + "/ocr", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "image/webp" }, body: image.stdout })
   if (unsupported.status !== 415) throw new Error("Worker must reject unsupported MIME types.")
 
+  const badSignature = await fetch("http://127.0.0.1:" + port + "/ocr", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "image/png" }, body: Buffer.from("not a PNG") })
+  if (badSignature.status !== 415) throw new Error("Worker must reject files with mismatched signatures.")
+
   const result = await fetch("http://127.0.0.1:" + port + "/ocr", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "image/png" }, body: image.stdout })
   if (!result.ok) throw new Error("Worker OCR failed with status " + result.status + ": " + await result.text())
   const payload = await result.json()
