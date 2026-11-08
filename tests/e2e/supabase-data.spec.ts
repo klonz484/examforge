@@ -175,7 +175,9 @@ test('Supabase study data and private notes enforce per-account access', async (
   expect(forgedAttempt.error).not.toBeNull()
 
   const storagePath = `${userA!.id}/e2e-${marker}.pdf`
-  const pdfBytes = Buffer.from('%PDF-1.4\\n% ExamForge E2E test file\\n')
+  const pdfBytes = createTextPdf(
+    "Newton's second law states that the net force acting on an object is equal to its mass multiplied by acceleration. The SI unit of force is the newton. Acceleration describes the rate of change of velocity over time."
+  )
   const upload = await accountA.storage.from('student-notes').upload(storagePath, pdfBytes, {
     contentType: 'application/pdf',
     upsert: false,
