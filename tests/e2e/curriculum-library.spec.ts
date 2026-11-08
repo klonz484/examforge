@@ -25,7 +25,7 @@ test('CAPS roadmaps switch grade and subject and link to the matching DBE ATP', 
 
   await page.getByLabel('Roadmap grade').selectOption('11')
   await page.getByLabel('Roadmap subject').selectOption('physical-science')
-  await expect(page.getByText(/Vectors in two dimensions and Newton’s laws/)).toBeVisible()
+  await expect(page.locator('.roadmap-topic-list')).toContainText(/vectors in two dimensions and Newton’s laws/i)
   await expect(grade10Math).toHaveAttribute('href', /fileticket=HofhdeKXMCM/)
 
   await page.getByLabel('Roadmap grade').selectOption('12')
