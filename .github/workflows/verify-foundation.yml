@@ -22,6 +22,8 @@ on:
       - "src/**"
       - "tests/**"
       - "supabase/migrations/**"
+      - "supabase/config.toml"
+      - "tests/setup-local-supabase.mjs"
       - ".github/workflows/verify-foundation.yml"
       - "package.json"
       - "package-lock.json"
