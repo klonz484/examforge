@@ -10,6 +10,7 @@ import {
   MAX_NOTE_BYTES,
   MAX_PDF_PAGES,
 } from "../_shared/document-validation.ts"
+import { runTesseractOcr, type TesseractOcrResult } from "../_shared/tesseract-ocr.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -47,6 +48,25 @@ async function withTimeout<T>(operation: Promise<T>, milliseconds: number): Prom
   } finally {
     if (timer !== undefined) clearTimeout(timer)
   }
+}
+
+
+async function runConfiguredOcr(bytes: Uint8Array, mimeType: string): Promise<TesseractOcrResult | null> {
+  // Disabled by default. Non-production activation requires an explicit local
+  // flag and a private worker endpoint/token; no hosted OCR vendor is used.
+  if (Deno.env.get("OCR_WORKER_ENABLED") !== "true") return null
+  const endpoint = Deno.env.get("OCR_WORKER_URL")
+  const token = Deno.env.get("OCR_WORKER_TOKEN")
+  if (!endpoint || !token) throw new Error("The private non-production OCR worker is not configured.")
+  return runTesseractOcr(bytes, mimeType, endpoint, token)
+}
+
+function buildOcrReviewText(result: TesseractOcrResult): string {
+  const sections = [result.text]
+  if (result.equationText && result.equationText !== result.text) {
+    sections.push("[Equation OCR — best effort, verify every symbol]\n" + result.equationText)
+  }
+  return cleanExtractedText(sections.join("\n\n"), MAX_EXTRACTED_TEXT_CHARS)
 }
 
 Deno.serve(async request => {
@@ -112,18 +132,51 @@ Deno.serve(async request => {
   // Image OCR and scanned-PDF OCR must not be silently sent to an unapproved
   // third-party service. They remain private and explicitly require an OCR path.
   if (String(note.mime_type) !== "application/pdf") {
-    await adminClient.from("note_uploads").update({
-      processing_status: "low_confidence",
-      extraction_confidence: null,
-      extracted_text: null,
-      extraction_error: "Image OCR is not enabled. No external OCR provider was called.",
-      extraction_metadata: { kind: "image", requiresOcr: true, qualityStatus: "not-extracted", confidenceStatus: "not-assessed" },
-    }).eq("id", note.id).eq("user_id", learner.id)
-    return response(422, {
-      status: "low_confidence",
-      metadata: { kind: "image", requiresOcr: true, qualityStatus: "not-extracted", confidenceStatus: "not-assessed" },
-      error: "This image is stored privately, but OCR is not enabled. No image data was sent to an external service.",
-    }, origin)
+    try {
+      const { data: imageFile, error: imageDownloadError } = await adminClient.storage
+        .from("student-notes")
+        .download(String(note.storage_path))
+      if (imageDownloadError || !imageFile) throw new Error("Private image download failed.")
+      const imageBytes = new Uint8Array(await imageFile.arrayBuffer())
+      if (imageBytes.byteLength < 1 || imageBytes.byteLength > MAX_NOTE_BYTES) throw new Error("The image size is outside the allowed range.")
+      const ocr = await runConfiguredOcr(imageBytes, String(note.mime_type))
+      if (!ocr) {
+        const metadata = { kind: "image", requiresOcr: true, qualityStatus: "ocr-disabled", confidenceStatus: "not-assessed" }
+        await adminClient.from("note_uploads").update({
+          processing_status: "low_confidence", extraction_confidence: null, extracted_text: null,
+          extraction_error: "Image OCR is disabled. No external OCR provider was called.", extraction_metadata: metadata,
+        }).eq("id", note.id).eq("user_id", learner.id)
+        return response(422, { status: "low_confidence", metadata, error: "This image is stored privately, but non-production OCR is disabled. No external OCR service was called." }, origin)
+      }
+      const extractedText = buildOcrReviewText(ocr)
+      const usable = hasUsableStudyText(ocr.text)
+      const metadata = {
+        kind: "image", parser: "tesseract", pages: ocr.pageCount, languages: ocr.languages,
+        textChars: extractedText.length, requiresOcr: false, equationStatus: ocr.equationStatus,
+        equationReviewRequired: true, qualityStatus: usable ? "ocr-text-extracted" : "ocr-insufficient-text",
+        confidenceStatus: "not-calibrated",
+      }
+      const { error: saveError } = await adminClient.from("note_uploads").update({
+        processing_status: usable ? "ready" : "low_confidence", extraction_confidence: null,
+        extracted_text: extractedText, extraction_metadata: metadata,
+        extracted_at: new Date().toISOString(),
+        extraction_error: usable ? null : "OCR did not produce enough usable study text. Review the image and try a clearer scan.",
+      }).eq("id", note.id).eq("user_id", learner.id)
+      if (saveError) throw new Error("OCR text could not be saved to the private note.")
+      return response(usable ? 200 : 422, {
+        status: usable ? "ready" : "low_confidence", noteId: note.id, extractedText,
+        textChars: extractedText.length, metadata,
+        ...(usable ? {} : { error: "OCR did not produce enough usable study text. Review the image and try a clearer scan." }),
+      }, origin)
+    } catch (error) {
+      console.error("Private image OCR failed:", error instanceof Error ? error.message : "unknown OCR error")
+      await adminClient.from("note_uploads").update({
+        processing_status: "failed", extraction_confidence: null, extracted_text: null,
+        extraction_error: "The image could not be safely processed by the private OCR worker.",
+        extraction_metadata: { kind: "image", qualityStatus: "ocr-failed", confidenceStatus: "not-assessed" },
+      }).eq("id", note.id).eq("user_id", learner.id)
+      return response(422, { status: "failed", error: "The image could not be safely processed. Check the file and try again." }, origin)
+    }
   }
 
   const { data: claim, error: claimError } = await adminClient.from("note_uploads")
@@ -165,6 +218,29 @@ Deno.serve(async request => {
     const extractedText = cleanExtractedText(fullText, MAX_EXTRACTED_TEXT_CHARS)
 
     if (!hasUsableStudyText(extractedText)) {
+      const ocr = await runConfiguredOcr(bytes, "application/pdf")
+      if (ocr) {
+        const ocrText = buildOcrReviewText(ocr)
+        const usableOcrText = hasUsableStudyText(ocr.text)
+        const ocrMetadata = {
+          kind: "pdf", parser: "tesseract", pages: ocr.pageCount, languages: ocr.languages,
+          textChars: ocrText.length, requiresOcr: false, equationStatus: ocr.equationStatus,
+          equationReviewRequired: true, qualityStatus: usableOcrText ? "ocr-text-extracted" : "ocr-insufficient-text",
+          confidenceStatus: "not-calibrated",
+        }
+        const { error: ocrSaveError } = await adminClient.from("note_uploads").update({
+          processing_status: usableOcrText ? "ready" : "low_confidence", extraction_confidence: null,
+          extracted_text: ocrText, extraction_metadata: ocrMetadata,
+          extracted_at: new Date().toISOString(),
+          extraction_error: usableOcrText ? null : "OCR did not produce enough usable study text. Review the scanned PDF.",
+        }).eq("id", note.id).eq("user_id", learner.id)
+        if (ocrSaveError) throw new Error("OCR text could not be saved to the private note.")
+        return response(usableOcrText ? 200 : 422, {
+          status: usableOcrText ? "ready" : "low_confidence", noteId: note.id, extractedText: ocrText,
+          textChars: ocrText.length, metadata: ocrMetadata,
+          ...(usableOcrText ? {} : { error: "OCR did not produce enough usable study text. Review the scanned PDF." }),
+        }, origin)
+      }
       const metadata = {
         kind: "pdf",
         parser: "unpdf@2.1.0",
