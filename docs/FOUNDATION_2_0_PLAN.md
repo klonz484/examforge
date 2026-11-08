@@ -499,3 +499,17 @@ Do not access or change the connected live Supabase project, GitHub Pages, main,
 - The merge did not deploy GitHub Pages, apply live Supabase migrations, configure production secrets or activate paid AI/OCR providers.
 - The foundation branch is one commit behind the newly updated `main` after squash merge. Reconcile ancestry before creating another integration PR; do not duplicate the already merged implementation.
 - Phases 0–4 remain complete. Phase 5 remains partial at the owner approval boundary. Phase 6 remains incomplete.
+
+
+## 18. Phase 5 provider research decision — 8 November 2026
+
+The project owner selected OpenAI API for AI question generation and Tesseract for OCR, with a proposed R500/month ceiling. The owner explicitly authorised **research only**. No provider credentials, paid requests, OCR deployment, live learner data processing, or production changes are authorised.
+
+- Research and recommended architecture: [docs/PHASE_5_PROVIDER_RESEARCH.md](./PHASE_5_PROVIDER_RESEARCH.md).
+- Provisional low-cost model candidate: `gpt-6-luna`, subject to representative CAPS-aligned question-quality evaluation; no model is activated.
+- Proposed OCR: local/self-hosted Tesseract 5, subject to runtime/container and multilingual/math-layout benchmarking.
+- OpenAI API content is not used for training by default, but default abuse-monitoring retention can be up to 30 days; `store:false` does not itself guarantee zero retention. Account ZDR eligibility and endpoint behaviour require confirmation.
+- POPIA/children's data and cross-border transfer questions remain legal review blockers. No conclusion of adequacy or lawful transfer is made.
+- R500 is a hard proposed ceiling, not spending permission. Any future implementation must use a stricter internal ZAR ledger/cap with FX/tax buffer and fail-closed behaviour.
+
+**Phase 5 status: RESEARCH COMPLETE; IMPLEMENTATION/ACTION NOT AUTHORISED.** The next boundary is explicit owner approval for a non-production sandbox implementation (including whether test spend is allowed or calls must be mocked), plus privacy/legal clearance. Provider activation remains disabled. Phase 6 is still incomplete.
