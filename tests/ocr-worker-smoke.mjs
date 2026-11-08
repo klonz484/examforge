@@ -78,7 +78,7 @@ try {
   const unsupported = await fetch(base + "/ocr", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "image/webp" }, body: textImage })
   if (unsupported.status !== 415) throw new Error("Worker must reject unsupported MIME types.")
 
-  const badLanguage = await postOcr(textImage, "eng+zul")
+  const badLanguage = await postOcr(textImage, "image/png", "eng+zul")
   if (badLanguage.status !== 400) throw new Error("Worker must reject uninstalled or unapproved languages.")
 
   const badSignature = await fetch(base + "/ocr", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "image/png" }, body: Buffer.from("not a PNG") })
@@ -94,7 +94,7 @@ try {
   }
 
   const afrikaansImage = syntheticImage("Die massa is twee kilogram", "/tmp/examforge-ocr-afrikaans.png")
-  const afrikaansResponse = await postOcr(afrikaansImage, "afr")
+  const afrikaansResponse = await postOcr(afrikaansImage, "image/png", "afr")
   if (!afrikaansResponse.ok) throw new Error("Afrikaans OCR failed: " + await afrikaansResponse.text())
   const afrikaansPayload = await afrikaansResponse.json()
   if (!/massa/i.test(afrikaansPayload.text) || afrikaansPayload.languages !== "afr") {
@@ -102,7 +102,7 @@ try {
   }
 
   const equationImage = syntheticImage("F = m a", "/tmp/examforge-ocr-equation.png")
-  const equationResponse = await postOcr(equationImage, "eng")
+  const equationResponse = await postOcr(equationImage, "image/png", "eng")
   if (!equationResponse.ok) throw new Error("Worker equation OCR failed: " + await equationResponse.text())
   const equationPayload = await equationResponse.json()
   if (!/f\s*=\s*ma/i.test(equationPayload.equationText.replace(/\s+/g, " "))) {
