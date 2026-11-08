@@ -206,6 +206,20 @@ test('Supabase study data and private notes enforce per-account access', async (
   expect(storedExtraction.data.extracted_text).toContain('Newton')
   expect(storedExtraction.data.extraction_metadata).toMatchObject({ parser: 'unpdf@2.1.0', pages: 1, requiresOcr: false })
 
+  // The local test environment intentionally has no AI provider secrets.
+  const disabledDraft = await accountA.functions.invoke('generate-study-question', {
+    body: {
+      grade: 12, subjectId: 'mathematics', subjectName: 'Mathematics',
+      topic: 'Algebra', noteId: note.data!.id,
+    },
+  })
+  expect(disabledDraft.error).not.toBeNull()
+  const disabledContext = (disabledDraft.error as { context?: Response }).context
+  if (disabledContext) {
+    const disabledBody = await disabledContext.clone().json()
+    expect(String(disabledBody.error)).toContain('credentials have not been configured')
+  }
+
   const ownNote = await accountA.from('note_uploads').select('id').eq('id', note.data!.id)
   expect(ownNote.error).toBeNull()
   expect(ownNote.data).toHaveLength(1)
