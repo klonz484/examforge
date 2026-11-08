@@ -66,5 +66,5 @@ test('theme toggle is keyboard operable and preference survives reload', async (
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await expect(page.locator('html')).toHaveAttribute('data-ui-theme', 'light')
-  await expect(page.getByRole('button', { name: 'Switch to dark theme' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('ef:theme'))).toBe('"light"')
 })
