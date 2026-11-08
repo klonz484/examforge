@@ -37,10 +37,26 @@ async function readBody(req) {
   return Buffer.concat(chunks, total)
 }
 
-async function command(file, args, deadline) { const remaining = deadline - Date.now(); if (remaining <= 0) throw Object.assign(new Error("OCR processing timed out."), { killed: true }); return execFileAsync(file, args, { timeout: remaining, maxBuffer: 2 * 1024 * 1024, windowsHide: true }) }
-function cleanText(value) { return value.replace(/\u0000/g, "").replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, MAX_TEXT) }
+async function command(file, args, deadline) {
+  const remaining = deadline - Date.now()
+  if (remaining <= 0) throw Object.assign(new Error("OCR processing timed out."), { killed: true })
+  return execFileAsync(file, args, { timeout: remaining, maxBuffer: 2 * 1024 * 1024, windowsHide: true })
+}
+
+function hasExpectedSignature(bytes, mimeType) {
+  if (mimeType === "application/pdf") return bytes.subarray(0, Math.min(bytes.length, 1024)).includes(Buffer.from("%PDF-"))
+  if (mimeType === "image/png") return bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  if (mimeType === "image/jpeg") return bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
+  return false
+}
+
+function cleanText(value) {
+  return value.replace(/\u0000/g, "").replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, MAX_TEXT)
+}
 
 async function processFile(bytes, mimeType) {
+  if (!hasExpectedSignature(bytes, mimeType)) throw Object.assign(new Error("File signature does not match its declared MIME type."), { status: 415 })
+  const deadline = Date.now() + TIMEOUT_MS
   const dir = await mkdtemp(path.join(os.tmpdir(), "examforge-ocr-"))
   try {
     const input = path.join(dir, mimeType === "application/pdf" ? "source.pdf" : "source-image")
