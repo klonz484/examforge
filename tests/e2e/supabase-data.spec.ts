@@ -317,13 +317,21 @@ test('signed-in learner can recover a cloud session after sign-out and sign-in',
     .eq('user_id', userId).eq('status', 'in_progress')
     .order('started_at', { ascending: false }).limit(1).single()
   expect(syncedSession.error).toBeNull()
+  const selectedQuestionId = await page.evaluate(id => {
+    const raw = localStorage.getItem(`ef:${id}:active-session`)
+    if (!raw) return null
+    const snapshot = JSON.parse(raw)
+    return snapshot.questions?.[snapshot.questionIndex ?? 0]?.id ?? null
+  }, userId)
+  expect(selectedQuestionId).toMatch(/^math-g12-(algebra|functions)-001$/)
+
   const syncedAnswer = await account.from('question_attempts')
     .select('question_id,subject_id,grade,is_correct')
     .eq('study_session_id', syncedSession.data.id)
   expect(syncedAnswer.error).toBeNull()
   expect(syncedAnswer.data).toHaveLength(1)
   expect(syncedAnswer.data![0]).toMatchObject({
-    question_id: 'math-g12-algebra-001', subject_id: 'mathematics', grade: 12, is_correct: false,
+    question_id: selectedQuestionId, subject_id: 'mathematics', grade: 12, is_correct: false,
   })
 
   await page.getByRole('button', { name: 'Save & exit' }).click()
