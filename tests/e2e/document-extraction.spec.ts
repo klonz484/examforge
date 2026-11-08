@@ -144,6 +144,7 @@ test('Tesseract adapter rejects unapproved remote HTTP endpoints and unsupported
   const bytes = new TextEncoder().encode('%PDF-1.7 synthetic fixture')
   await expect(runTesseractOcr(bytes, 'application/pdf', 'http://ocr.example.test/ocr', 'x'.repeat(40))).rejects.toThrow(/HTTPS/)
   await expect(runTesseractOcr(bytes, 'image/webp', 'https://ocr.example.test/ocr', 'x'.repeat(40))).rejects.toThrow(/supports PDF, JPEG and PNG/)
+  await expect(runTesseractOcr(bytes, 'application/pdf', 'https://ocr.example.test/ocr', 'x'.repeat(40), 'eng+zul')).rejects.toThrow(/languages are not allowed/)
 })
 
 test('AI drafting stays disabled in the learner UI until explicit owner approval', async ({ page }) => {
