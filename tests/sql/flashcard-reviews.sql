@@ -21,7 +21,7 @@ begin
     select 1 from public.flashcard_reviews
     where user_id = auth.uid() and question_id = 'science-g12-mechanics-001'
       and interval_days = 0 and repetitions = 0 and last_grade = 0
-      and ease_factor = 2.30 and next_review_at > now()
+      and ease_factor = 2.30 and next_review_at <= now()
   ) then
     raise exception 'Again did not reset the card to an immediate review';
   end if;
