@@ -93,7 +93,7 @@ async function processFile(bytes, mimeType, languages) {
       // A separate formula pass avoids aggressive deskewing, which can merge
       // adjacent mathematical glyphs. This is best-effort OCR, not symbolic parsing.
       const equationInput = path.join(dir, "equation-" + index + ".png")
-      await command("convert", [images[index], "-auto-orient", "-colorspace", "Gray", "-resize", "200%", "-contrast", equationInput], deadline)
+      await command("convert", [images[index], "-auto-orient", "-colorspace", "Gray", equationInput], deadline)
       const equationResult = await command("tesseract", [equationInput, "stdout", "-l", "eng", "--oem", "1", "--psm", "6", "-c", "preserve_interword_spaces=1"], deadline)
       equationPages.push("[Page " + (index + 1) + "]\n" + equationResult.stdout)
     }
