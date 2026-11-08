@@ -24,4 +24,4 @@ for (const [email, password] of [
   if (!data.user?.id) throw new Error(`Local test user ${email} was not created.`)
 }
 
-console.log('Created two disposable local Supabase auth accounts.')
+console.log('Created three disposable local Supabase auth accounts.')
