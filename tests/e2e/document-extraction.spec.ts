@@ -97,6 +97,9 @@ test('AI drafting stays disabled in the learner UI until explicit owner approval
   await page.getByRole('button', { name: /Start Forging/ }).click()
   await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Upload' }).click()
 
+  await expect(page.getByRole('heading', { name: 'Study material' })).toBeVisible()
+  await expect(page.getByText(/Text extraction is available for selectable-text PDFs/)).toBeVisible()
+  await expect(page.getByText(/Capture handwritten or printed notes instantly/)).toHaveCount(0)
   await expect(page.getByText(/AI drafting is disabled until the project owner/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'AI provider not enabled' })).toBeDisabled()
 })
