@@ -138,8 +138,8 @@ function App() {
     setTab('Dashboard'); setSessionQs([]); setQuestionIndex(0); setSelected(null); setAnswers([])
     setRewindOpen(false); setSeconds(0); setRemoteDates([]); setNotes([]); setNoteStatus(''); setActiveSessionId(null); setSessionStartedAt(''); setSessionSummary(null)
     setRecoverableSession(load<SessionSnapshot | null>(userStorageKey(userId, 'active-session'), null))
-    setSessions(userId ? load<Session[]>(userStorageKey(userId, 'sessions'), []) : [])
-    setAttempts(userId ? load<Attempt[]>(userStorageKey(userId, 'attempts'), []) : [])
+    setSessions(load<Session[]>(userStorageKey(userId, 'sessions'), []))
+    setAttempts(load<Attempt[]>(userStorageKey(userId, 'attempts'), []))
     setWeak([]); setGrade('12'); setSubject('Physical Science'); setSelectedSubjectIds(['physical-science']); setCatalogueSearch(''); setAllSubjectsOpen(false); setExamDate(dateAfterDays(20))
     setOnboarded(false); setShowOnboarding(true)
     if (!userId) {
