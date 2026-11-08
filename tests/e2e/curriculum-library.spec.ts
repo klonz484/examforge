@@ -10,7 +10,7 @@ async function enterLearnerDashboard(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
   await page.getByRole('button', { name: 'Electricity', exact: true }).click()
   await page.getByRole('button', { name: /Start Forging/ }).click()
-  await page.getByRole('button', { name: 'Past Papers' }).click()
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Past Papers' }).click()
 }
 
 test('CAPS roadmaps switch grade and subject and link to the matching DBE ATP', async ({ page }) => {
