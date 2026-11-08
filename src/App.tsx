@@ -5,18 +5,14 @@ import { isSupabaseConfigured, supabase } from './supabase'
 import { Button, Dialog, Navigation, TextField } from './components/ui'
 import { CAPS_SUBJECTS, searchCapsSubjects, type CapsSubject } from './data/capsSubjects'
 import { PRACTICE_QUESTIONS, selectPracticeQuestions, type PracticeQuestion } from './data/practiceQuestions'
+import { CAPS_ROADMAPS } from './data/capsRoadmaps'
+import { OFFICIAL_PAPER_ARCHIVES } from './data/examArchives'
 
 type Tab = 'Dashboard' | 'Past Papers' | 'Upload Notes' | 'Progress'
 const TOPICS: Record<string, string[]> = {
   'Physical Science': ['Mechanics', 'Electricity', 'Waves', 'Chemical Change', 'Organic Chemistry', 'Stoichiometry', 'Momentum & Impulse', 'Energy & Work'],
   'Mathematics': ['Algebra', 'Functions', 'Trigonometry', 'Calculus', 'Euclidean Geometry', 'Analytical Geometry', 'Sequences & Series', 'Finance & Growth'],
 }
-const papers = [
-  { year: '2025', title: 'Physical Science Paper 1', subtitle: 'Physics · DBE November', tags: ['Mechanics', 'Electricity'], level: 'Hard' },
-  { year: '2025', title: 'Mathematics Paper 2', subtitle: 'Geometry · Trigonometry', tags: ['Geometry', 'Trigonometry'], level: 'Medium' },
-  { year: '2024', title: 'Physical Science Paper 2', subtitle: 'Chemistry · DBE November', tags: ['Organic', 'Stoichiometry'], level: 'Medium' },
-  { year: '2024', title: 'Mathematics Paper 1', subtitle: 'Algebra · Functions', tags: ['Algebra', 'Functions'], level: 'Medium' },
-]
 const REWIND_SECONDS = 20 * 60
 const ALLOWED_NOTE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 const MAX_NOTE_BYTES = 10 * 1024 * 1024
@@ -68,6 +64,8 @@ function App() {
   const [attempts, setAttempts] = useState<Attempt[]>([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('All')
+  const [roadmapGrade, setRoadmapGrade] = useState('12')
+  const [roadmapSubjectId, setRoadmapSubjectId] = useState<'mathematics' | 'physical-science'>('mathematics')
   const [notes, setNotes] = useState<File[]>([])
   const [noteStatus, setNoteStatus] = useState('')
   const [user, setUser] = useState<User | null>(null)
@@ -101,7 +99,11 @@ function App() {
   const daysLeft = examDate ? Math.max(0, Math.ceil((new Date(examDate + 'T23:59:59').getTime() - Date.now()) / 86400000)) : null
   const currentQuestion = sessionQs[questionIndex]
   const score = answers.reduce((n, a, i) => n + (sessionQs[i] && a === sessionQs[i].answer ? 1 : 0), 0)
-  const filteredPapers = useMemo(() => papers.filter(p => (filter === 'All' || (filter === 'Physical Science' ? p.title.includes('Physical Science') : filter === 'Mathematics' ? p.title.includes('Mathematics') : p.year === filter)) && (p.title + p.subtitle + p.tags.join(' ')).toLowerCase().includes(search.toLowerCase())), [filter, search])
+  const filteredArchives = useMemo(() => OFFICIAL_PAPER_ARCHIVES.filter(item =>
+    (filter === 'All' || (filter === 'Physical Science' ? item.subjectId === 'physical-science' : filter === 'Mathematics' ? item.subjectId === 'mathematics' : String(item.year) === filter)) &&
+    (item.subjectName + item.year + item.sitting + item.sourceTitle).toLowerCase().includes(search.toLowerCase())
+  ), [filter, search])
+  const activeRoadmap = CAPS_ROADMAPS.find(item => item.grade === Number(roadmapGrade) && item.subjectId === roadmapSubjectId) ?? null
   const subjectAttempts = attempts.filter(a => topics.includes(a.topic))
   const masteryFor = (t: string) => { const rows = attempts.filter(a => a.topic === t).slice(-20); return rows.length ? Math.round(100 * rows.filter(r => r.correct).length / rows.length) : null }
   const accuracy = subjectAttempts.length ? Math.round(100 * subjectAttempts.filter(a => a.correct).length / subjectAttempts.length) : null
@@ -537,7 +539,35 @@ function App() {
         <section className={`task-card ${rewindDone?'':'locked'}`}><div className="task-icon">{rewindDone?<Atom/>:<LockKeyhole/>}</div><div className="task-copy"><b>{subject==='Physical Science'||subject==='Physical Sciences'?'Q2 · Inclined plane':subject==='Mathematics'?'Q3 · Quadratic functions':'Learning content coming soon'}</b><p>{['Physical Science','Physical Sciences','Mathematics'].includes(subject)?'2025 DBE Trial · Paper 1 (sample task)':'CAPS subject library · roadmap not yet published'}</p><small>{rewindDone?(subject==='Physical Science'?'Draw a free-body diagram. Show N = mg cos θ.':'Complete the sketch and identify the turning point.'):'Locked until you finish tonight’s Rewind.'}</small></div><button className="round-arrow" disabled={!rewindDone} aria-label="Open past papers" onClick={()=>setTab('Past Papers')}><ChevronRight/></button></section>
         <div className="section-heading"><div><h2>Your focus</h2><p className="muted">Work on these before exam day.</p></div><button className="text-btn" onClick={()=>setShowOnboarding(true)}>Edit</button></div><div className="topic-pills dashboard-pills">{weak.map(t=><span className="pill selected" key={t}>{t}</span>)}</div>
       </>}
-      {tab==='Past Papers' && <><div className="page-heading"><p className="eyebrow">PRACTISE THE REAL THING</p><h1>Past Papers</h1><p className="muted">Attempt. Mark. Learn from every mistake.</p></div><div className="searchbox"><Search size={18}/><input placeholder="Search past papers…" value={search} onChange={e=>setSearch(e.target.value)}/><Settings2 size={18}/></div><div className="filter-row">{['All','Physical Science','Mathematics','2025','2024'].map(f=><button className={`filter ${filter===f?'active':''}`} onClick={()=>setFilter(f)} key={f}>{f}</button>)}</div><h3 className="subheading">{filteredPapers.length} sample listings</h3><div className="paper-list">{filteredPapers.map((p,i)=><article className="paper-card" key={p.title}><div className={`paper-symbol sym-${i%3}`}>{p.title.includes('Mathematics')?<Sigma/>:<Atom/>}</div><div className="paper-main"><div className="paper-title-row"><span className="paper-year">{p.year}</span><div><b>{p.title}</b><small>{p.subtitle}</small></div></div><div className="paper-tags">{p.tags.map(t=><span key={t}>{t}</span>)}</div></div><div className="paper-action"><small>{p.level}</small><span>Sample</span><button className="small-primary" disabled>Coming soon</button></div></article>)}</div><p className="hint">Sample listings only. Real paper files and official memos will be added before launch.</p></>}
+      {tab==='Past Papers' && <>
+        <div className="page-heading"><p className="eyebrow">CAPS REVISION LIBRARY</p><h1>Past Papers &amp; Roadmaps</h1><p className="muted">Find the curriculum map, then open official DBE paper and memo archives.</p></div>
+        <section className="panel roadmap-panel">
+          <div className="section-heading"><div><h2>CAPS study roadmap</h2><p className="muted">Topic map linked to the reviewed DBE ATP source.</p></div><span className="tag">FET</span></div>
+          <div className="roadmap-filters">
+            <label>Grade<select aria-label="Roadmap grade" value={roadmapGrade} onChange={e=>setRoadmapGrade(e.target.value)}><option value="10">Grade 10</option><option value="11">Grade 11</option><option value="12">Grade 12</option></select></label>
+            <label>Subject<select aria-label="Roadmap subject" value={roadmapSubjectId} onChange={e=>setRoadmapSubjectId(e.target.value as 'mathematics' | 'physical-science')}><option value="mathematics">Mathematics</option><option value="physical-science">Physical Sciences</option></select></label>
+          </div>
+          {activeRoadmap ? <>
+            <div className="roadmap-source"><b>{activeRoadmap.sourceTitle}</b><small>DBE · {activeRoadmap.sourceProgram} · Source checked 8 November 2026</small><a href={activeRoadmap.sourceUrl} target="_blank" rel="noreferrer">Open official ATP source</a></div>
+            <ul className="roadmap-topic-list">{activeRoadmap.topics.map((topic,index)=><li key={topic}><span>{index+1}</span>{topic}</li>)}</ul>
+            <p className="hint">{activeRoadmap.note} Circular S19 of 2025 retained the 2023/24 ATPs with exclusions; verify the circular and any subject-specific updates before treating this as a complete current teaching schedule.</p>
+          </> : <p className="content-notice">A grade and subject roadmap has not yet been verified for this selection. A CAPS catalogue listing does not by itself prove grade-specific ATP coverage.</p>}
+          <p className="roadmap-source-foot"><a href="https://www.education.gov.za/Curriculum/NationalCirculars.aspx" target="_blank" rel="noreferrer">Check DBE National Circulars for updates</a></p>
+        </section>
+        <div className="section-heading"><div><h2>Official DBE exam archives</h2><p className="muted">Grade 12 NSC papers and memos · archive pages, not copied PDFs.</p></div></div>
+        <div className="searchbox"><Search size={18}/><input placeholder="Search official archives…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search official paper archives"/><Settings2 size={18}/></div>
+        <div className="filter-row">{['All','Mathematics','Physical Science','2025','2024'].map(f=><button className={`filter ${filter===f?'active':''}`} onClick={()=>setFilter(f)} key={f}>{f}</button>)}</div>
+        <h3 className="subheading">{filteredArchives.length} verified archive entries</h3>
+        <div className="archive-grid">{filteredArchives.map(item=><article className="archive-card" key={item.id}>
+          <div className="archive-card-top"><span className="paper-year">{item.year}</span><span className="tag">{item.sitting}</span></div>
+          <b>{item.subjectName}</b><small>Grade 12 · NSC · {item.sitting} {item.year}</small>
+          <div className="archive-counts"><span>{item.papers.length} question papers</span><span>{item.memos.length} memos</span></div>
+          <p>{item.accessNote}</p>
+          <a href={item.sourceUrl} target="_blank" rel="noreferrer">Open DBE archive page <ChevronRight size={15}/></a>
+          <small className="archive-provenance">Source: {item.sourceAuthority} · index checked 8 Nov 2026</small>
+        </article>)}</div>
+        <p className="hint">ExamForge links to the Department of Basic Education archive. The documents remain hosted by the DBE; ExamForge does not re-host or alter the papers or marking memos.</p>
+      </>}
       {tab==='Upload Notes' && <><div className="page-heading"><p className="eyebrow purple-text">YOUR NOTES. YOUR QUESTIONS.</p><h1>Upload Notes</h1><p className="muted">Add notes to generate targeted practice questions.</p></div><label className="upload-zone"><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={e=>pickNotes(Array.from(e.target.files||[]))}/><div className="upload-icon"><Upload size={30}/></div><b>Take a photo or upload a PDF</b><p>Capture handwritten or printed notes instantly.</p><span className="upload-link">Choose files <Plus size={15}/></span><small>JPG, PNG, WebP or PDF · Max 10 MB per file</small></label>{notes.length>0&&<div className="selected-files">{notes.map((f,i)=><div key={`${f.name}-${i}`}><FileText size={17}/><span>{f.name}</span><button aria-label={`Remove ${f.name}`} onClick={()=>setNotes(a=>a.filter(x=>x!==f))}><X size={16}/></button></div>)}<button className="primary full" onClick={uploadNotes}>Upload {notes.length} file(s) <ChevronRight size={18}/></button></div>}{noteStatus&&<p className="status-message">{noteStatus}</p>}<section className="purple-panel"><div className="purple-icon"><FlaskConical/></div><div><b>What happens next?</b><p>Coming soon: ExamForge will extract your notes, check confidence, and draft questions linked to your weak topics. You review them before they enter Rewind. For now, uploads are stored privately.</p></div></section><div className="section-heading"><div><h2>Recently uploaded</h2><p className="muted">Your study material library</p></div></div><div className="empty-state"><BookOpen size={30}/><b>Nothing to show yet</b><p>Your uploaded pages and generated questions will appear here.</p></div></>}
       {tab==='Progress' && <><div className="page-heading"><p className="eyebrow">HONEST FEEDBACK</p><h1>Your Progress</h1><p className="muted">Track the work, not just the feeling.</p></div><div className="progress-summary"><div><span>Study sessions</span><b>{doneDates.length}</b><div className="bar"><i style={{width:`${Math.min(100,doneDates.length*5)}%`}}/></div></div><div><span>Current streak</span><b>{streak}</b><div className="bar bluebar"><i style={{width:`${Math.min(100,streak*10)}%`}}/></div></div><div><span>Practice accuracy</span><b>{accuracy===null?'—':`${accuracy}%`}</b><div className="bar"><i style={{width:`${accuracy??0}%`}}/></div></div></div><section className="panel progress-panel"><h3>Topic accuracy</h3>{topics.map(t=>{const m=masteryFor(t);return <div className="mastery-row" key={t}><span>{t}</span><b>{m===null?'—':`${m}%`}</b><div className="bar"><i style={{width:`${m??0}%`}}/></div></div>})}</section><section className="panel"><h3>Study activity</h3>{doneDates.length===0?<div className="activity-empty"><Activity size={25}/><p>Complete your first Rewind to start building your activity history.</p></div>:<div className="activity-empty"><Activity size={25}/><p>{doneDates.length} Rewind{doneDates.length===1?'':'s'} completed. Last: {[...doneDates].sort().slice(-1)[0]}.</p></div>}</section><section className="panel mistake-notebook"><h3>Mistake notebook</h3>{attempts.filter(attempt=>!attempt.correct && attempt.questionId).length===0?<div className="activity-empty"><BookOpen size={24}/><p>No saved mistakes yet. Incorrect answers from completed practice sessions will appear here with corrections.</p></div>:attempts.filter(attempt=>!attempt.correct && attempt.questionId).slice().reverse().map((attempt,index)=>{const question=PRACTICE_QUESTIONS.find(item=>item.id===attempt.questionId);return question?<article className="mistake-row" key={`${attempt.sessionId ?? 'local'}-${question.id}-${index}`}><b>{question.topic}</b><p>{question.prompt}</p><small>Your answer: {question.options[attempt.response?.selected ?? -1] ?? 'Not recorded'}</small><p>Correct answer: {question.options[question.answer]}</p><p>{question.explanation}</p></article>:null})}</section><p className="hint">Accuracy is calculated from your last 20 saved answers per topic; it is not a claim of mastery. A dash means no answers yet.</p></>}
     </main>
