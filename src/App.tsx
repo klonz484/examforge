@@ -9,6 +9,7 @@ import { CAPS_ROADMAPS } from './data/capsRoadmaps'
 import { OFFICIAL_PAPER_ARCHIVES } from './data/examArchives'
 import { REVISION_FLASHCARDS, scheduleFlashcardReview, type FlashcardRating, type FlashcardReview } from './data/flashcards'
 import { isFlashcardDue, scheduleFlashcardReview, type FlashcardReviewState, type ReviewGrade } from './data/spacedRepetition'
+import { analyseProgress } from './data/progressIntelligence'
 
 type Tab = 'Dashboard' | 'Past Papers' | 'Upload Notes' | 'Progress'
 const TOPICS: Record<string, string[]> = {
