@@ -21,7 +21,7 @@ export function scheduleFlashcardReview(
   let repetitions = previous?.repetitions ?? 0
 
   if (grade === 0) {
-    interval = 1
+    interval = 0
     repetitions = 0
     ease = Math.max(1.3, ease - 0.2)
   } else if (grade === 1) {
@@ -29,10 +29,10 @@ export function scheduleFlashcardReview(
     repetitions += 1
     ease = Math.max(1.3, ease - 0.15)
   } else if (grade === 2) {
-    interval = repetitions === 0 ? 1 : repetitions === 1 ? 6 : Math.max(1, Math.round(Math.max(1, interval) * ease))
+    interval = repetitions === 0 ? 1 : repetitions === 1 ? 3 : Math.max(1, Math.round(Math.max(1, interval) * ease))
     repetitions += 1
   } else {
-    interval = repetitions === 0 ? 4 : Math.max(1, Math.round(Math.max(1, interval) * (ease + 0.3)))
+    interval = repetitions === 0 ? 3 : repetitions === 1 ? 5 : Math.max(1, Math.ceil(Math.max(1, interval) * ease * 1.3))
     repetitions += 1
     ease = Math.min(3.5, ease + 0.15)
   }
