@@ -72,6 +72,52 @@ jobs:
         run: psql -h localhost -U postgres -d examforge_test -v ON_ERROR_STOP=1 -f tests/sql/ai-study-usage.sql
         env:
           PGPASSWORD: postgres
+      - name: Verify disposable PostgreSQL backup restoration
+        run: |
+          pg_dump -h localhost -U postgres -d examforge_test --format=custom --no-owner --no-acl --file "$RUNNER_TEMP/examforge-test.dump"
+          createdb -h localhost -U postgres examforge_restore_test
+          pg_restore -h localhost -U postgres -d examforge_restore_test --no-owner --no-acl --exit-on-error "$RUNNER_TEMP/examforge-test.dump"
+          psql -h localhost -U postgres -d examforge_restore_test -v ON_ERROR_STOP=1 <<'SQL'
+          DO $
+          DECLARE
+            required_table text;
+          BEGIN
+            FOREACH required_table IN ARRAY ARRAY[
+              'learner_subjects',
+              'study_sessions',
+              'question_attempts',
+              'flashcard_reviews',
+              'ai_usage_daily'
+            ]
+            LOOP
+              IF to_regclass('public.' || required_table) IS NULL THEN
+                RAISE EXCEPTION 'Restored backup is missing public.%', required_table;
+              END IF;
+            END LOOP;
+
+            IF NOT EXISTS (
+              SELECT 1
+              FROM pg_class c
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+              WHERE n.nspname = 'public'
+                AND c.relname = 'learner_subjects'
+                AND c.relrowsecurity
+            ) THEN
+              RAISE EXCEPTION 'Restored learner_subjects table has RLS disabled';
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies
+              WHERE schemaname = 'public'
+                AND tablename = 'learner_subjects'
+            ) THEN
+              RAISE EXCEPTION 'Restored backup is missing learner_subjects policies';
+            END IF;
+          END;
+          $;
+          SQL
+        env:
+          PGPASSWORD: postgres
       - name: Start disposable local Supabase
         uses: supabase/setup-cli@v1
         with:
@@ -124,6 +170,8 @@ jobs:
 
       - name: TypeScript and production build
         run: npm run build
+      - name: Enforce compressed bundle budgets
+        run: npm run check:bundle
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit
       - name: Run browser and integration tests, including local Supabase auth and recovery

@@ -27,6 +27,14 @@ test("ExamForge consumes shared navigation and modal form components", async ({ 
   await expect(nav.getByRole("link", { name: "Past Papers" })).toHaveAttribute("aria-current", "page");
   await nav.getByRole("link", { name: "Progress" }).click();
   await expect(page.getByRole("heading", { name: "Your Progress" })).toBeVisible();
+  const progressA11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  expect(progressA11y.violations, JSON.stringify(progressA11y.violations, null, 2)).toEqual([]);
+
+  await nav.getByRole("link", { name: "Upload" }).click();
+  await expect(page.getByRole("heading", { name: "Upload Notes" })).toBeVisible();
+  const uploadA11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  expect(uploadA11y.violations, JSON.stringify(uploadA11y.violations, null, 2)).toEqual([]);
+  await nav.getByRole("link", { name: "Progress" }).click();
 
   await page.getByRole("button", { name: "Menu" }).click();
   await page.getByRole("button", { name: /Account \/ sign in/ }).click();

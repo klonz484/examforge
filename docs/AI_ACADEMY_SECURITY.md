@@ -29,9 +29,13 @@ The browser can call generate-study-question only with an authenticated learner 
 
 ## Current environment configuration
 
-The only frontend flag is:
+The frontend flag is:
 
 - VITE_AI_STUDY_ENABLED=false — a non-secret UI gate. It must remain false until the project owner explicitly approves provider activation.
+
+The separate server-only kill switch is:
+
+- AI_STUDY_ENABLED=false — the Edge Function refuses all provider requests unless this is explicitly set to true after privacy, vendor and cost approval. A frontend build flag cannot override this server-side control.
 
 If and only if privacy, vendor and cost review is approved, configure these as Supabase Edge Function secrets, never frontend variables:
 
@@ -56,7 +60,7 @@ Supabase provides SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY 
 
 ## Current limitations
 
-- No AI provider secrets are configured; no paid provider request has been made.
+- AI_STUDY_ENABLED is false in local verification and defaults to disabled when absent. No AI provider secrets are configured; no paid provider request has been made.
 - OCR for images and scanned PDFs is not implemented. These uploads remain private and are marked low-confidence; no external OCR service is called.
 - Extraction quality is represented by explicit status metadata, not a calibrated numeric confidence score.
 - Automatic classification of arbitrary extracted text is not active. The current allowlist validates learner-selected subject/grade/topic metadata against the starter practice map; it does not prove that arbitrary source text belongs to that topic.
