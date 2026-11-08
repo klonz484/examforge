@@ -96,8 +96,21 @@ test('deterministic mock provider produces synthetic evidence that passes the in
   expect(parseQuestionDraft(raw, syntheticSource).evidence).toBe(value.evidence)
 })
 
-test('mock provider rejects undersized source text and never performs a provider request', () => {
-  expect(() => createMockQuestionResponse({ grade: 12, subjectName: 'Mathematics', topic: 'Algebra', sourceText: 'Too short.' })).toThrow(/at least 100/)
+test('mock provider rejects undersized source text and makes zero network requests', () => {
+  const originalFetch = globalThis.fetch
+  let networkCalls = 0
+  globalThis.fetch = (async () => { networkCalls += 1; throw new Error('Network access is forbidden in mock-provider tests.') }) as typeof fetch
+  try {
+    expect(() => createMockQuestionResponse({ grade: 12, subjectName: 'Mathematics', topic: 'Algebra', sourceText: 'Too short.' })).toThrow(/at least 100/)
+    const result = createMockQuestionResponse({
+      grade: 12, subjectName: 'Mathematics', topic: 'Algebra',
+      sourceText: 'A quadratic equation is an equation that can be written in the form ax squared plus bx plus c equals zero, where a is not zero.',
+    })
+    expect(JSON.parse(result).synthetic).toBe(true)
+    expect(networkCalls).toBe(0)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 })
 
 
