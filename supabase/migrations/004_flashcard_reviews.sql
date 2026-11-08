@@ -73,7 +73,7 @@ begin
   v_interval := coalesce(v_previous.interval_days, 0);
 
   if p_grade = 0 then
-    v_interval := 1;
+    v_interval := 0;
     v_repetitions := 0;
     v_ease := greatest(1.30, v_ease - 0.20);
   elsif p_grade = 1 then
@@ -83,7 +83,7 @@ begin
   elsif p_grade = 2 then
     v_interval := case
       when v_repetitions = 0 then 1
-      when v_repetitions = 1 then 6
+      when v_repetitions = 1 then 3
       else greatest(1, round(greatest(1, v_interval) * v_ease)::integer)
     end;
     v_repetitions := v_repetitions + 1;
