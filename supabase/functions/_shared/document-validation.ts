@@ -1,6 +1,6 @@
 export const MAX_NOTE_BYTES = 10 * 1024 * 1024
 export const MAX_PDF_PAGES = 30
-export const MAX_EXTRACTED_TEXT_CHARS = 40_000
+export const MAX_EXTRACTED_TEXT_CHARS = 8_000
 
 export const SUPPORTED_NOTE_MIME_TYPES = new Set([
   'application/pdf',
