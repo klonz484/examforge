@@ -142,7 +142,17 @@ function App() {
     setAttempts(userId ? load<Attempt[]>(userStorageKey(userId, 'attempts'), []) : [])
     setWeak([]); setGrade('12'); setSubject('Physical Science'); setSelectedSubjectIds(['physical-science']); setCatalogueSearch(''); setAllSubjectsOpen(false); setExamDate(dateAfterDays(20))
     setOnboarded(false); setShowOnboarding(true)
-    if (!userId || !supabase) return
+    if (!userId) {
+      const guestProfile = load<Profile | null>(userStorageKey(null, 'profile'), null)
+      const guestSubjects = load<string[]>(userStorageKey(null, 'subjects'), [])
+      if (guestProfile) {
+        setGrade(guestProfile.grade); setExamDate(guestProfile.examDate); setSubject(guestProfile.subject); setWeak(guestProfile.weak)
+        setSelectedSubjectIds(guestSubjects.length ? guestSubjects : [guestProfile.subject === 'Mathematics' ? 'mathematics' : 'physical-science'])
+        setOnboarded(true); setShowOnboarding(false)
+      }
+      return
+    }
+    if (!supabase) return
     const client = supabase
     let active = true
     ;(async () => {
