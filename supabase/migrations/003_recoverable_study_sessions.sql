@@ -10,9 +10,10 @@ alter table public.study_sessions
   add column if not exists subject_id text,
   add column if not exists source_label text;
 
--- Existing completed_at values are preserved; new in-progress rows have no completion time.
+-- Existing completed_at values and the legacy default are preserved. New in-progress
+-- inserts explicitly set completed_at = null; older clients still get a completion time.
 alter table public.study_sessions alter column completed_at drop not null;
-alter table public.study_sessions alter column completed_at drop default;
+alter table public.study_sessions alter column completed_at set default now();
 
 alter table public.question_attempts
   add column if not exists study_session_id uuid references public.study_sessions(id) on delete cascade,
