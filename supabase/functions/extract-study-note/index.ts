@@ -117,10 +117,11 @@ Deno.serve(async request => {
       extraction_confidence: null,
       extracted_text: null,
       extraction_error: "Image OCR is not enabled. No external OCR provider was called.",
-      extraction_metadata: { kind: "image", requiresOcr: true },
+      extraction_metadata: { kind: "image", requiresOcr: true, qualityStatus: "not-extracted", confidenceStatus: "not-assessed" },
     }).eq("id", note.id).eq("user_id", learner.id)
     return response(422, {
       status: "low_confidence",
+      metadata: { kind: "image", requiresOcr: true, qualityStatus: "not-extracted", confidenceStatus: "not-assessed" },
       error: "This image is stored privately, but OCR is not enabled. No image data was sent to an external service.",
     }, origin)
   }
@@ -170,6 +171,8 @@ Deno.serve(async request => {
         pages: extraction.totalPages,
         textChars: extractedText.length,
         requiresOcr: true,
+        qualityStatus: "insufficient-selectable-text",
+        confidenceStatus: "not-calibrated",
       }
       await adminClient.from("note_uploads").update({
         processing_status: "low_confidence",
@@ -182,6 +185,7 @@ Deno.serve(async request => {
       return response(422, {
         status: "low_confidence",
         textChars: extractedText.length,
+        metadata,
         error: "The PDF did not contain enough selectable text. It may be scanned; OCR is not enabled and no external OCR service was called.",
       }, origin)
     }
@@ -193,6 +197,8 @@ Deno.serve(async request => {
       textChars: extractedText.length,
       truncated: fullText.length > MAX_EXTRACTED_TEXT_CHARS,
       requiresOcr: false,
+      qualityStatus: "usable-selectable-text",
+      confidenceStatus: "not-calibrated",
     }
     const { error: saveError } = await adminClient.from("note_uploads").update({
       processing_status: "ready",
@@ -222,6 +228,7 @@ Deno.serve(async request => {
       processing_status: "failed",
       extracted_text: null,
       extraction_error: "The PDF could not be safely extracted. Check the file and try again.",
+      extraction_metadata: { kind: "pdf", qualityStatus: "extraction-failed", confidenceStatus: "not-assessed" },
     }).eq("id", note.id).eq("user_id", learner.id)
     return response(422, { status: "failed", error: "The PDF could not be safely extracted. Check the file and try again." }, origin)
   } finally {
