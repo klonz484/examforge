@@ -64,6 +64,14 @@ try {
     throw new Error("Worker did not return expected multilingual text OCR: " + JSON.stringify(textPayload))
   }
 
+  const afrikaansImage = syntheticImage("Die massa is twee kilogram", "/tmp/examforge-ocr-afrikaans.png")
+  const afrikaansResponse = await postOcr(afrikaansImage, "afr")
+  if (!afrikaansResponse.ok) throw new Error("Afrikaans OCR failed: " + await afrikaansResponse.text())
+  const afrikaansPayload = await afrikaansResponse.json()
+  if (!/massa/i.test(afrikaansPayload.text) || afrikaansPayload.languages !== "afr") {
+    throw new Error("Afrikaans traineddata did not recognise the synthetic phrase: " + JSON.stringify(afrikaansPayload))
+  }
+
   const equationImage = syntheticImage("F = m x a", "/tmp/examforge-ocr-equation.png")
   const equationResponse = await postOcr(equationImage, "eng")
   if (!equationResponse.ok) throw new Error("Worker equation OCR failed: " + await equationResponse.text())
