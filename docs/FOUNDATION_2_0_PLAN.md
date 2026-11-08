@@ -308,9 +308,9 @@ Earlier work on `feat/verified-seven-subject-package` included:
 
 ## 9. Immediate next action
 
-**Continue Phase 5 provider-independent hardening, then complete Phase 6 launch readiness.**
+**Pause at the Phase 5 provider/OCR approval boundary.** Resume provider/OCR work only after the project owner approves the privacy, vendor and cost review and decides whether OCR is in scope. Phase 6 also requires owner-provided physical Android testing and approved backup/restore/operational access.
 
-Phases 0–4 are complete on the isolated foundation branch. Phase 5 has private text-based PDF extraction, explicit extraction-quality statuses, supported subject/grade/topic validation, AI-output validation and quota controls. OCR and AI provider activation remain disabled pending project-owner privacy, vendor and cost approval. Phase 6 still requires manual Android accessibility testing, POPIA/privacy review, independent security review, a real backup/restore drill, broader offline/performance testing and operational readiness.
+Phases 0–4 are complete on the isolated foundation branch. Phase 5 provider-independent work is implemented and verified, but OCR and AI provider activation remain disabled pending project-owner privacy, vendor and cost approval. Phase 6 remains open for manual Android accessibility, POPIA/privacy and independent security review, a real backup/restore drill, broader offline/performance testing and operational readiness.
 
 Do not create a temporary Supabase preview branch or use student data for verification. CI uses disposable local Supabase containers and local test accounts only. No live Supabase migration, production merge, Pages deployment, provider call, package publication or cost is authorised.
 
