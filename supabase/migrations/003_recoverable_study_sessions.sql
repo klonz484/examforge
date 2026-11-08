@@ -36,8 +36,12 @@ drop policy if exists sessions_update_own on public.study_sessions;
 create policy sessions_update_own on public.study_sessions
   for update to authenticated using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+drop policy if exists attempts_update_own on public.question_attempts;
+create policy attempts_update_own on public.question_attempts
+  for update to authenticated using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 grant select, insert, update on public.study_sessions to authenticated;
-grant select, insert on public.question_attempts to authenticated;
+grant select, insert, update on public.question_attempts to authenticated;
 
 -- Record each answer and update the recoverable snapshot atomically.
 create or replace function public.record_study_answer(
