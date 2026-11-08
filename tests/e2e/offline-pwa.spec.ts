@@ -5,10 +5,9 @@ test('PWA shell reloads from the service-worker cache while offline', async ({ p
   await page.goto('/examforge/')
   const appRoot = page.locator('#root')
   await expect(appRoot).not.toBeEmpty()
-  const initialText = (await appRoot.innerText()).trim()
-  expect(initialText.length).toBeGreaterThan(0)
   const onboardingHeading = page.getByRole('heading', { name: /Set up your exam focus/i })
   await expect(onboardingHeading).toBeVisible()
+  await expect(page.getByText('Choose your subjects')).toBeVisible()
 
   await page.evaluate(async () => {
     if (!('serviceWorker' in navigator)) throw new Error('Service workers are unavailable')
@@ -26,7 +25,7 @@ test('PWA shell reloads from the service-worker cache while offline', async ({ p
     await page.reload()
     await expect(appRoot).not.toBeEmpty()
     await expect(onboardingHeading).toBeVisible()
-    await expect(appRoot).toContainText(initialText.slice(0, 24))
+    await expect(page.getByText('Choose your subjects')).toBeVisible()
   } finally {
     await context.setOffline(false)
   }
