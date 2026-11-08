@@ -320,7 +320,7 @@ Do not create a temporary Supabase preview branch or use student data for verifi
 ### Phase 0 — Foundation stabilisation: COMPLETE (foundation branch only)
 
 Verified exit evidence:
-- Foundation branch remains based on the reviewed `main` baseline `259df190812ad9d47405d3402b90998fafbd2fc3`; the current comparison reports 213 commits ahead and 0 behind. Current branch head is `6709e144d0b2be3c0e68f2063b4e6bcc6f52b3ee`.
+- Foundation branch remains based on the reviewed `main` baseline `259df190812ad9d47405d3402b90998fafbd2fc3`; the current comparison reports 213 commits ahead and 0 behind. Latest code-verified head before this progress-documentation update is `6709e144d0b2be3c0e68f2063b4e6bcc6f52b3ee`.
 - Current verified head before this documentation update: `2839d012901713f5a87471e81b1c66a06129fce6`.
 - [Foundation verification run #22](https://github.com/klonz484/examforge/actions/runs/42393214592) completed successfully: `npm ci`, TypeScript/production build, Chromium/Firefox/WebKit installation, and full Playwright browser/integration suite all passed.
 - Shared accessible UI tests remain intact in the passing suite.
@@ -393,8 +393,8 @@ The Phase 1 implementation and documented exit criteria have been verified on th
 - The separate guarded Supabase end-to-end tests, including cloud sign-out/sign-in recovery, were skipped because an explicitly designated disposable Supabase staging environment and credentials are not configured. Their presence in the suite is not counted as executed verification.
 
 **Known content and release limits**
-- The starter question bank currently supports Grade 12 Mathematics and Physical Sciences only. Other grades and subjects remain visibly unavailable rather than being served mismatched questions. Expanding and verifying curriculum coverage remains subsequent curriculum/content work.
-- The starter questions are original ExamForge practice, not official DBE past-paper material. Official paper/memo ingestion and provenance checks remain Phase 3.
+- The Phase 2 starter bank initially supported Grade 12 Mathematics and Physical Sciences. Phase 3 expanded original practice coverage to Grade 10–12 Mathematics and Physical Sciences. Other catalogue subjects remain unavailable rather than receiving mismatched questions.
+- All current question-bank items are original ExamForge practice, not official DBE past-paper extracts. Phase 3 now links to DBE archive index pages; individual PDFs remain DBE-hosted and are not re-hosted or ingested.
 - Migration `003_recoverable_study_sessions.sql` has passed disposable CI PostgreSQL testing only. It has not been applied to the connected live Supabase project.
 - PR #3 remains open and unmerged. No main merge, GitHub Pages deployment or live database write occurred.
 
