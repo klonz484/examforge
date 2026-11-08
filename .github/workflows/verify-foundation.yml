@@ -8,6 +8,8 @@ on:
       - "src/**"
       - "tests/**"
       - "supabase/migrations/**"
+      - "supabase/config.toml"
+      - "tests/setup-local-supabase.mjs"
       - ".github/workflows/verify-foundation.yml"
       - "package.json"
       - "package-lock.json"
@@ -74,9 +76,31 @@ jobs:
         run: psql -h localhost -U postgres -d examforge_test -v ON_ERROR_STOP=1 -f tests/sql/recoverable-study-sessions.sql
         env:
           PGPASSWORD: postgres
+      - name: Start disposable local Supabase
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.39.2
+      - name: Apply migrations to disposable local Supabase
+        run: |
+          supabase start --exclude studio,edge-runtime,logflare,vector,imgproxy,inbucket,analytics
+          supabase status -o env >> "$GITHUB_ENV"
+      - name: Create disposable local learner accounts
+        run: node tests/setup-local-supabase.mjs
+        env:
+          API_URL: ${{ env.API_URL }}
+          SERVICE_ROLE_KEY: ${{ env.SERVICE_ROLE_KEY }}
       - name: TypeScript and production build
         run: npm run build
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit
-      - name: Run browser and integration tests
-        run: npx playwright test
+      - name: Run browser and integration tests, including local Supabase auth and recovery
+        run: npx playwright test --workers=1
+        env:
+          VITE_SUPABASE_URL: ${{ env.API_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ env.ANON_KEY }}
+          SUPABASE_IS_DISPOSABLE_STAGING: "true"
+          RUN_LIVE_SUPABASE_E2E: "true"
+          E2E_TEST_EMAIL_A: learner-a@examforge.local
+          E2E_TEST_PASSWORD_A: ExamForgeLocalTest-A!2026
+          E2E_TEST_EMAIL_B: learner-b@examforge.local
+          E2E_TEST_PASSWORD_B: ExamForgeLocalTest-B!2026
