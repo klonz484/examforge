@@ -3,6 +3,8 @@ import { cleanExtractedText, hasPdfMagicBytes, hasUsableStudyText, isAllowedNote
 import { parseQuestionDraft } from '../../supabase/functions/_shared/ai-validation'
 import { isSupportedAiStudyContext } from '../../supabase/functions/_shared/ai-caps-metadata'
 import { getPracticeTopics } from '../../src/data/practiceQuestions'
+import { createMockQuestionResponse } from '../../supabase/functions/_shared/mock-ai-provider'
+import { runTesseractOcr } from '../../supabase/functions/_shared/tesseract-ocr'
 
 const sourceText = 'Newton’s second law states that the net force acting on an object is equal to its mass multiplied by its acceleration.'
 
@@ -83,6 +85,25 @@ test('AI draft validation rejects unsupported evidence and duplicate answer opti
     confidence: 0.9,
   })
   expect(() => parseQuestionDraft(duplicate, sourceText)).toThrow(/distinct/)
+})
+
+test('deterministic mock provider produces synthetic evidence that passes the independent validator', () => {
+  const syntheticSource = 'Ohm’s law states that the current through a conductor between two points is directly proportional to the voltage across the two points, provided the temperature remains constant. This is synthetic test material.'
+  const raw = createMockQuestionResponse({ grade: 12, subjectName: 'Physical Sciences', topic: 'Electricity', sourceText: syntheticSource })
+  const value = JSON.parse(raw)
+  expect(value.synthetic).toBe(true)
+  expect(value.provenance).toBe('synthetic-mock-provider')
+  expect(parseQuestionDraft(raw, syntheticSource).evidence).toBe(value.evidence)
+})
+
+test('mock provider rejects undersized source text and never performs a provider request', () => {
+  expect(() => createMockQuestionResponse({ grade: 12, subjectName: 'Mathematics', topic: 'Algebra', sourceText: 'Too short.' })).toThrow(/at least 100/)
+})
+
+test('Tesseract adapter rejects unapproved remote HTTP endpoints and unsupported input types', async () => {
+  const bytes = new TextEncoder().encode('%PDF-1.7 synthetic fixture')
+  await expect(runTesseractOcr(bytes, 'application/pdf', 'http://ocr.example.test/ocr', 'x'.repeat(40))).rejects.toThrow(/HTTPS/)
+  await expect(runTesseractOcr(bytes, 'image/webp', 'https://ocr.example.test/ocr', 'x'.repeat(40))).rejects.toThrow(/supports PDF, JPEG and PNG/)
 })
 
 test('AI drafting stays disabled in the learner UI until explicit owner approval', async ({ page }) => {
