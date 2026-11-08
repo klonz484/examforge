@@ -489,3 +489,13 @@ Phase 6 is not complete. The following work requires physical-device access, own
 
 Do not access or change the connected live Supabase project, GitHub Pages, main, production secrets or paid services to complete these tasks without separate explicit approval. The project remains a development-branch implementation, not a public-launch approval.
 
+
+
+## 17. PR #3 merge and latest verification — 8 November 2026
+
+- The project owner explicitly approved merging PR #3. It was squash-merged after [Foundation verification #373](https://github.com/klonz484/examforge/actions/runs/42526602544) and [Shared UI verification #201](https://github.com/klonz484/examforge/actions/runs/42526602555) both passed on head `67eb0d05073b23ef4320ad7b1042f547b17786ec`.
+- The offline PWA reload test was hardened to assert stable onboarding content after the offline reload.
+- Merge commit: [`8faa2caf49b12556ba62cba6e4f075301842b69f`](https://github.com/klonz484/examforge/commit/8faa2caf49b12556ba62cba6e4f075301842b69f). [PR #3](https://github.com/klonz484/examforge/pull/3) is merged; older statements in this roadmap saying it remains open/unmerged are superseded by this entry.
+- The merge did not deploy GitHub Pages, apply live Supabase migrations, configure production secrets or activate paid AI/OCR providers.
+- The foundation branch is one commit behind the newly updated `main` after squash merge. Reconcile ancestry before creating another integration PR; do not duplicate the already merged implementation.
+- Phases 0–4 remain complete. Phase 5 remains partial at the owner approval boundary. Phase 6 remains incomplete.
