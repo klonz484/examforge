@@ -167,8 +167,11 @@ test('signed-in learner can recover a cloud session after sign-out and sign-in',
   const userId = signedIn.data.user!.id
 
   // This is a disposable staging account. Give it a known, supported study setup.
-  const oldSessions = await account.from('study_sessions').update({ status: 'abandoned' })
-    .eq('user_id', userId).eq('status', 'in_progress')
+  // These accounts are disposable. Reset all earlier sessions so the run
+  // is independent of any completed session left by a previous CI attempt.
+  const oldSessions = await account.from('study_sessions').update({
+    status: 'abandoned', completed_at: null,
+  }).eq('user_id', userId)
   expect(oldSessions.error).toBeNull()
   const future = new Date()
   future.setDate(future.getDate() + 30)
