@@ -123,3 +123,23 @@ Phase 1 has met its automated exit criteria on `foundation/examforge-foundation-
 - The migration is not applied to live Supabase. No production merge or Pages deployment occurred.
 
 **Phase 1: COMPLETE on the foundation branch only.** Proceed with Phase 2 on a later run; retain PR #3 open for review and do not merge without explicit approval.
+
+
+## 10. Phase 2 implementation and verification — 8 November 2026
+
+Phase 2 implementation has been delivered on the foundation branch. The final exit gate remains open because the guarded cloud-auth round-trip test was skipped without a disposable Supabase staging environment.
+
+- Question bank: stable Grade 12 Mathematics/Physical Sciences IDs; topic, grade, subject, correct answer, explanation and explicit original-practice provenance; not represented as official DBE content.
+- Learning loop: 20-minute focus target, question selection, marking, explanations, session summary, save/exit, resume after reload, and abandon.
+- Persistence: additive `003_recoverable_study_sessions.sql`; account-owned sessions; atomic answer/attempt RPC; idempotent session-position answer writes; completion RPC; RLS and cross-account isolation.
+- Progress: saved attempts feed accuracy and a persistent mistake notebook; accuracy is not called mastery.
+- Subject integrity: unsupported subject selections do not fall back to another subject's questions.
+- Guest state: setup, sessions and attempts restore after reload.
+
+**Evidence:** [verification run 42447976494](https://github.com/klonz484/examforge/actions/runs/42447976494), head `ad8e3470667a975adea413251cc4c57969b803dc`. Both disposable PostgreSQL 16 SQL suites passed; TypeScript/build passed; Playwright passed **63** with **7 skipped** across Chromium, Firefox and WebKit.
+
+**Outstanding exit gate:** The guarded Supabase E2E tests (including cloud sign-out/sign-in session recovery) did not execute because no disposable staging Supabase configuration was supplied. The test must be run against disposable staging before Phase 2 is marked complete. Do not run destructive test-account operations against the live project.
+
+**Content boundary:** Grade 12 Mathematics and Physical Sciences only are currently populated. Questions are original ExamForge practice, not official DBE questions. Broader grade/subject coverage and official paper ingestion remain later roadmap work.
+
+No live Supabase migration, main merge or Pages deployment occurred. PR #3 remains open.
