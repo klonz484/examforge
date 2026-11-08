@@ -171,6 +171,7 @@ function App() {
   // idempotent by (session_id, question_position), so retries cannot duplicate attempts.
   useEffect(() => {
     if (!user || !supabase || pendingAnswerWrites.length === 0) return
+    const client = supabase
     let active = true
     let syncing = false
     const syncPending = async () => {
@@ -178,7 +179,7 @@ function App() {
       syncing = true
       let synced = 0
       for (const item of pendingAnswerWrites) {
-        const { error } = await supabase.rpc('record_study_answer', {
+        const { error } = await client.rpc('record_study_answer', {
           p_session_id: item.sessionId,
           p_question_id: item.questionId,
           p_topic: item.topic,
