@@ -4,7 +4,7 @@
 **Project:** ExamForge  
 **Repository:** `klonz484/examforge`  
 **Roadmap branch:** `foundation/examforge-foundation-2`  
-**Last updated:** 7 November 2026
+**Last updated:** 8 November 2026
 
 This document is the current roadmap for the project. It supersedes the earlier phase ordering as the active plan, but does **not** erase previous work. Earlier implementation, decisions, branches, test results, and research remain project history and reference material. They must be inspected and reused selectively where appropriate.
 
@@ -308,17 +308,11 @@ Earlier work on `feat/verified-seven-subject-package` included:
 
 ## 9. Immediate next action
 
-**Finish Phase 0, then implement Phase 1 on `foundation/examforge-foundation-2`.**
+**Continue Phase 5 provider-independent hardening, then complete Phase 6 launch readiness.**
 
-The next engineering session should:
-1. Refresh the current repository state: `main`, this branch, old feature branch, open PRs, and latest workflow runs.
-2. Compare the old subject feature branch with current `main`.
-3. Identify the smallest safe set of catalogue, onboarding, persistence, dashboard, and test changes to port.
-4. Fix known test selector ambiguity and any newly discovered failures.
-5. Implement and verify Phase 1 incrementally, keeping all production systems untouched.
-6. Report exactly what changed, what passed, what remains, and the next concrete action.
+Phases 0–4 are complete on the isolated foundation branch. Phase 5 has private text-based PDF extraction, explicit extraction-quality statuses, supported subject/grade/topic validation, AI-output validation and quota controls. OCR and AI provider activation remain disabled pending project-owner privacy, vendor and cost approval. Phase 6 still requires manual Android accessibility testing, POPIA/privacy review, independent security review, a real backup/restore drill, broader offline/performance testing and operational readiness.
 
-**Do not start Phase 2 by pretending sample questions are production-ready.** First finish the learner foundation, then build the complete learning loop using properly sourced and labelled content.
+Do not create a temporary Supabase preview branch or use student data for verification. CI uses disposable local Supabase containers and local test accounts only. No live Supabase migration, production merge, Pages deployment, provider call, package publication or cost is authorised.
 
 
 ## 10. Roadmap progress log — 7 November 2026
@@ -326,7 +320,7 @@ The next engineering session should:
 ### Phase 0 — Foundation stabilisation: COMPLETE (foundation branch only)
 
 Verified exit evidence:
-- Foundation branch is based on the latest reviewed `main` baseline `259df190812ad9d47405d3402b90998fafbd2fc3`; comparison reports 27 commits ahead and 0 behind.
+- Foundation branch remains based on the reviewed `main` baseline `259df190812ad9d47405d3402b90998fafbd2fc3`; the current comparison reports 213 commits ahead and 0 behind. Current branch head is `6709e144d0b2be3c0e68f2063b4e6bcc6f52b3ee`.
 - Current verified head before this documentation update: `2839d012901713f5a87471e81b1c66a06129fce6`.
 - [Foundation verification run #22](https://github.com/klonz484/examforge/actions/runs/42393214592) completed successfully: `npm ci`, TypeScript/production build, Chromium/Firefox/WebKit installation, and full Playwright browser/integration suite all passed.
 - Shared accessible UI tests remain intact in the passing suite.
@@ -404,4 +398,94 @@ The Phase 1 implementation and documented exit criteria have been verified on th
 - Migration `003_recoverable_study_sessions.sql` has passed disposable CI PostgreSQL testing only. It has not been applied to the connected live Supabase project.
 - PR #3 remains open and unmerged. No main merge, GitHub Pages deployment or live database write occurred.
 
-**Phase 2 status: IMPLEMENTATION DELIVERED; EXIT GATE OPEN.** Before closing Phase 2, execute the guarded Supabase auth/session round-trip test against a disposable staging project. Do not use live Supabase for this test without explicit user approval. Once that test passes, update this status to complete and proceed to Phase 3.
+**Final Phase 2 exit-gate closure — 8 November 2026**
+
+- [Foundation verification run #332](https://github.com/klonz484/examforge/actions/runs/42505206691) completed successfully on head 072b20d4644742a4ec0dd2157ef8b4a58f40ad87.
+- CI started a disposable local Supabase stack, applied the migrations, created three local test accounts, served the Edge Functions without AI provider secrets, and ran authenticated browser/integration tests.
+- The guarded cloud-auth sign-out/sign-in recovery and offline answer-queue sync test executed against this disposable local stack. It was not skipped.
+- Playwright: **108 passed, 0 skipped** across the configured Chromium, Firefox and WebKit projects. TypeScript/production build and all disposable PostgreSQL/RLS suites passed.
+- This used no temporary Supabase preview branch, no real student accounts/data, and no connected live Supabase project.
+
+**Phase 2 status: COMPLETE on the foundation branch only.** PR #3 remains open and unmerged. No production migration, merge or deployment occurred. Proceed to Phase 3.
+
+## 13. Phase 3 completion evidence — 8 November 2026
+
+### Phase 3 — Curriculum and exam library: COMPLETE on the foundation branch
+
+**Delivered**
+- Six grade/subject CAPS roadmaps: Grade 10, 11 and 12 Mathematics and Physical Sciences, with DBE ATP source metadata and explicit source/status distinctions.
+- Eight official DBE archive-index entries covering Mathematics and Physical Sciences for November 2024, May/June 2025, November 2025 and May/June 2026. The catalogue records year, grade, subject, paper/memo counts, source authority, verification date and access notes. The links open DBE archive index pages; ExamForge does not re-host the PDFs.
+- Topic-level original practice sets for all six grade/subject combinations, with stable question IDs, answers, explanations and explicit non-DBE provenance.
+- Searchable mistake notebook, reveal-and-correct flashcards and persisted spaced-repetition scheduling through the learner-owned review RPC.
+- Catalogue-only and unverified subject areas remain visible with their distinct statuses rather than being represented as complete study content.
+
+**Verification**
+- [Foundation verification run #332](https://github.com/klonz484/examforge/actions/runs/42505206691) passed: curriculum-library, practice-content, subject catalogue and spaced-review browser tests ran within the full suite.
+- DBE FET ATP index and the 2024–2026 DBE archive index pages were checked on 8 November 2026. The ATP index lists the relevant Grade 10–12 Mathematics and Physical Sciences offerings; the archive pages expose the relevant paper/memo sections.
+- Phase 3 is complete for the currently implemented Grade 10–12 Mathematics and Physical Sciences scope. It is not a claim of full CAPS coverage across every catalogue subject or a DBE endorsement.
+
+**Source references**
+- DBE FET ATP index: https://www.education.gov.za/Curriculum/NationalCurriculumStatementsGradesR-12/2023ATPsFET.aspx
+- DBE Circular S19 2025: https://www.education.gov.za/LinkClick.aspx?fileticket=fqHc5ZnT_q4%3D&mid=10757&portalid=0&tabid=3209
+- DBE 2024 NSC archive: https://www.education.gov.za/Curriculum/NationalSeniorCertificate%28NSC%29Examinations/2024NovemberNSCExamPapers.aspx
+- DBE 2025 November archive: https://www.education.gov.za/Curriculum/NationalSeniorCertificate%28NSC%29Examinations/2025NovemberNSCExamPapers.aspx
+- DBE 2025 May/June archive: https://www.education.gov.za/Curriculum/NationalSeniorCertificate%28NSC%29Examinations/2025MayJuneExamPapers.aspx
+- DBE 2026 May/June archive: https://www.education.gov.za/Curriculum/NationalSeniorCertificate%28NSC%29Examinations/2026MayJuneExamPapers.aspx
+
+## 14. Phase 4 completion evidence — 8 November 2026
+
+### Phase 4 — Progress intelligence: COMPLETE on the foundation branch
+
+**Delivered**
+- Topic accuracy, recent/previous seven-day trends and optional next-focus recommendations derive from saved question attempts and session records.
+- Attempt attribution uses stable question IDs, subject IDs and grade context; legacy rows with recoverable context are resolved and unknown/mismatched context is not presented as measured progress.
+- Empty and small samples are explicitly marked as insufficient evidence. Recommendations are withheld until the sample threshold is met.
+- Activity completion is separated from answer accuracy; the UI does not label a small sample as mastery.
+- Learners can override recommendations and retain control of their next study topic.
+
+**Verification**
+- [Foundation verification run #332](https://github.com/klonz484/examforge/actions/runs/42505206691): progress-intelligence unit/browser tests passed; the authenticated local Supabase integration test saved a real attempt, read it back under the same account, calculated the expected small-sample result, and verified another account saw no attempt data.
+- Empty, small-sample and context-scoping cases passed within the 108-test verification run.
+
+**Phase 4 status: COMPLETE on the foundation branch only.**
+
+## 15. Phase 5 implementation status — 8 November 2026
+
+### Phase 5 — AI Academy: provider-independent implementation advanced; approval gate remains open
+
+**Delivered and verified**
+- Private student-notes storage retains per-user path isolation, allowed MIME types and 10 MB limits. The extraction Edge Function validates the authenticated owner, note row, storage path, file size and PDF signature.
+- Text-based PDFs are extracted with unpdf, with page/time/text bounds. Scanned PDFs and image uploads are marked low_confidence; no external OCR provider is called.
+- Extraction metadata now reports qualityStatus and confidenceStatus. The numeric extraction_confidence remains null because no calibrated confidence model is used; no score is fabricated.
+- AI draft generation is server-side, requires learner authentication and subject enrolment, validates output structure and a verbatim evidence excerpt, preserves AI provenance, and keeps drafts pending human review.
+- The Edge Function now allowlists only supported Grade 10–12 Mathematics and Physical Sciences starter-practice subject/grade/topic combinations. This prevents arbitrary or mismatched metadata; it does not claim automatic classification of source text.
+- Atomic five-request daily quota and usage-accounting/RLS controls are covered by disposable PostgreSQL tests.
+- The learner UI feature flag VITE_AI_STUDY_ENABLED defaults to false. The provider is also disabled server-side because no AI provider secrets are configured.
+
+**Verification**
+- [Foundation verification run #351](https://github.com/klonz484/examforge/actions/runs/42506065508) passed on head 6709e144d0b2be3c0e68f2063b4e6bcc6f52b3ee: **114 passed, 0 skipped**. This includes PDF extraction, scanned-PDF/image low-confidence handling, private-storage account isolation, AI-provider-disabled response, metadata allowlist tests, and the disabled learner UI.
+- The shared UI adoption check [run #184](https://github.com/klonz484/examforge/actions/runs/42506065474) also passed.
+
+**Not complete / approval boundary**
+- OCR for images and scanned PDFs is not implemented. No OCR vendor or service has been selected.
+- No AI provider is configured or activated; no provider API call or cost has occurred.
+- Automatic classification of arbitrary extracted text is not active. Current validation confirms learner-selected metadata belongs to a supported practice map; content classification/quality evaluation requires an approved provider or a separately reviewed deterministic approach.
+- The extraction quality status is not a calibrated numeric confidence score.
+- Before activation, the project owner must approve the provider/OCR vendor, data-processing terms, POPIA/privacy assessment, retention/region/subprocessor terms, hard spend limits and operational monitoring. Only then may credentials be configured in a non-production Edge Function environment and provider integration be tested.
+
+**Phase 5 status: PARTIAL — provider/OCR approval gate open.** Ordinary study remains usable without AI.
+
+## 16. Phase 6 launch-readiness blockers — 8 November 2026
+
+Phase 6 is not complete. The following work requires physical-device access, owner/legal decisions or live operational configuration:
+
+- Manual keyboard, screen-reader/TalkBack, focus, contrast and text-scaling validation on physical Android devices.
+- POPIA/privacy review covering learner/minor data, lawful basis, notices, consent, retention, deletion and vendor processing.
+- Independent security review/penetration testing and review of deployed authentication/RLS/storage/Edge Function configuration.
+- Hosted Supabase backup policy and a real restore drill with owner-approved access to the connected service.
+- Full offline/conflict recovery and constrained-network testing on target Android browsers.
+- Real-device performance, monitoring/alerting, incident/support and rollback operations.
+- Final content licensing/provenance and public-facing claims review.
+
+Do not access or change the connected live Supabase project, GitHub Pages, main, production secrets or paid services to complete these tasks without separate explicit approval. The project remains a development-branch implementation, not a public-launch approval.
+
