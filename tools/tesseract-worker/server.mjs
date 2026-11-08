@@ -25,7 +25,7 @@ function send(res, status, body) {
 }
 
 function authorised(req) {
-  const supplied = req.headers.authorization?.match(/^Bearer\\s+(.+)$/i)?.[1] || ""
+  const supplied = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1] || ""
   const left = Buffer.from(supplied), right = Buffer.from(TOKEN)
   return left.length === right.length && timingSafeEqual(left, right)
 }
@@ -53,7 +53,7 @@ function hasExpectedSignature(bytes, mimeType) {
 }
 
 function cleanText(value) {
-  return value.replace(/\\u0000/g, "").replace(/[\\u0001-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/g, " ").replace(/[ \\t]+/g, " ").replace(/\\n{3,}/g, "\\n\\n").trim().slice(0, MAX_TEXT)
+  return value.replace(/\u0000/g, "").replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, MAX_TEXT)
 }
 
 function requestedLanguages(req) {
@@ -75,11 +75,11 @@ async function processFile(bytes, mimeType, languages) {
     let images = []
     if (mimeType === "application/pdf") {
       const info = await command("pdfinfo", [input], deadline)
-      const match = info.stdout.match(/^Pages:\\s+(\\d+)/m), pages = Number(match?.[1] || 0)
+      const match = info.stdout.match(/^Pages:\s+(\d+)/m), pages = Number(match?.[1] || 0)
       if (!Number.isInteger(pages) || pages < 1 || pages > MAX_PAGES) throw Object.assign(new Error("PDF page count is outside the allowed range."), { status: 422 })
       const prefix = path.join(dir, "page")
       await command("pdftoppm", ["-f", "1", "-l", String(pages), "-scale-to", "2500", "-png", input, prefix], deadline)
-      images = (await readdir(dir)).filter(name => /^page-\\d+\\.png$/.test(name)).sort((a,b) => Number(a.match(/\\d+/)?.[0]) - Number(b.match(/\\d+/)?.[0])).map(name => path.join(dir, name))
+      images = (await readdir(dir)).filter(name => /^page-\d+\.png$/.test(name)).sort((a,b) => Number(a.match(/\d+/)?.[0]) - Number(b.match(/\d+/)?.[0])).map(name => path.join(dir, name))
       if (images.length !== pages) throw new Error("PDF page rendering did not complete.")
     } else { images = [input] }
 
@@ -88,15 +88,15 @@ async function processFile(bytes, mimeType, languages) {
       const normalized = path.join(dir, "normalized-" + index + ".png")
       await command("convert", [images[index], "-auto-orient", "-colorspace", "Gray", "-deskew", "40%", "-resize", "200%", "-contrast", normalized], deadline)
       const textResult = await command("tesseract", [normalized, "stdout", "-l", languages, "--oem", "1", "--psm", "3"], deadline)
-      textPages.push("[Page " + (index + 1) + "]\\n" + textResult.stdout)
+      textPages.push("[Page " + (index + 1) + "]\n" + textResult.stdout)
 
       // A separate high-resolution, character-preserving pass targets simple
       // printed linear formulas. It is best-effort OCR, not symbolic parsing.
       const equationResult = await command("tesseract", [normalized, "stdout", "-l", "eng", "--oem", "1", "--psm", "6", "-c", "preserve_interword_spaces=1"], deadline)
-      equationPages.push("[Page " + (index + 1) + "]\\n" + equationResult.stdout)
+      equationPages.push("[Page " + (index + 1) + "]\n" + equationResult.stdout)
     }
-    const text = cleanText(textPages.join("\\n\\n"))
-    const equationText = cleanText(equationPages.join("\\n\\n"))
+    const text = cleanText(textPages.join("\n\n"))
+    const equationText = cleanText(equationPages.join("\n\n"))
     return {
       text,
       equationText,
@@ -125,4 +125,4 @@ const server = http.createServer(async (req, res) => {
     return send(res, status, { error: status === 504 ? "OCR processing timed out." : String(error?.message || "OCR failed.") })
   }
 })
-server.listen(PORT, "0.0.0.0", () => process.stdout.write("Tesseract worker listening on port " + PORT + "\\n"))
+server.listen(PORT, "0.0.0.0", () => process.stdout.write("Tesseract worker listening on port " + PORT + "\n"))
