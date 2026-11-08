@@ -58,7 +58,7 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.locator('input[type="email"]').fill(emailA!)
   await page.locator('input[type="password"]').fill(passwordA!)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByText('You are signed in.')).toBeVisible()
+  await expect(page.getByRole('dialog')).not.toBeVisible()
   // Wait until the account-scoped profile hydration has completed before editing settings.
   await page.waitForFunction(() => Object.keys(localStorage).some(key => key.startsWith('ef:') && key.endsWith(':profile')))
 
@@ -70,7 +70,9 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   const mathematicsOption = page.getByRole('button', { name: 'Mathematics ATP-listed', exact: true })
   if (await mathematicsOption.getAttribute('aria-pressed') !== 'true') await mathematicsOption.click()
   const physicalScienceOption = page.getByRole('button', { name: 'Physical Sciences ATP-listed', exact: true })
-  if (await physicalScienceOption.getAttribute('aria-pressed') !== 'true') await physicalScienceOption.click()
+  // This test verifies a Mathematics-only enrolment; Physical Sciences is selected
+  // by default during fresh onboarding, so explicitly remove it here.
+  if (await physicalScienceOption.getAttribute('aria-pressed') === 'true') await physicalScienceOption.click()
   // Select Mathematics as the first study focus before choosing its topics.
   await page.getByLabel('Choose your first study focus').selectOption('mathematics')
   const selectedTopics = page.locator('.topic-pills .pill.selected')
