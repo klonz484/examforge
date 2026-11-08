@@ -138,8 +138,13 @@ jobs:
           code="$(curl --silent --output "$RUNNER_TEMP/ai-disabled.json" --write-out '%{http_code}' -X POST \
             -H 'Content-Type: application/json' --data '{}' \
             "$API_URL/functions/v1/generate-study-question")"
-          test "$code" = "503"
-          grep -q "disabled pending explicit" "$RUNNER_TEMP/ai-disabled.json"
+          if [ "$code" != "503" ] || ! grep -q "disabled pending explicit" "$RUNNER_TEMP/ai-disabled.json"; then
+            echo "Expected the AI kill switch to return HTTP 503 with its explicit disabled message; received HTTP $code."
+            cat "$RUNNER_TEMP/ai-disabled.json"
+            echo "--- Edge Function logs ---"
+            cat "$RUNNER_TEMP/functions.log"
+            exit 1
+          fi
           ! grep -q "AI_STUDY_API_KEY" "$RUNNER_TEMP/functions.env"
           ! grep -q "OPENAI_API_KEY" "$RUNNER_TEMP/functions.env"
           echo "AI provider kill switch returned 503 and no provider credentials are present."
