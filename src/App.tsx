@@ -17,6 +17,16 @@ const MAX_NOTE_BYTES = 10 * 1024 * 1024
 
 type Session = { date: string; score: number; seconds: number; subject: string }
 type Attempt = { topic: string; correct: boolean; t: number; sessionId?: string; questionId?: string; subjectId?: string | null; grade?: number | null; response?: { selected: number } }
+type PendingAnswerSync = {
+  sessionId: string
+  questionId: string
+  topic: string
+  questionPosition: number
+  response: { selected: number }
+  isCorrect: boolean
+  sessionState: SessionSnapshot
+  durationSeconds: number
+}
 type SessionSnapshot = { id?: string; updatedAt?: string; subject: string; subjectId: string; grade: number; questions: PracticeQuestion[]; questionIndex: number; answers: number[]; seconds: number; startedAt: string }
 type SessionSummary = { session: Session; questions: PracticeQuestion[]; answers: number[] }
 type Profile = { grade: string; examDate: string; subject: string; weak: string[] }
@@ -76,6 +86,7 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [remoteDates, setRemoteDates] = useState<string[]>([])
   const [attempts, setAttempts] = useState<Attempt[]>([])
+  const [pendingAnswerWrites, setPendingAnswerWrites] = useState<PendingAnswerSync[]>([])
   const [flashcardReviews, setFlashcardReviews] = useState<Record<string, FlashcardReviewState>>({})
   const [mistakeSearch, setMistakeSearch] = useState('')
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null)
@@ -156,6 +167,52 @@ function App() {
   }, [activeSessionId, activeSubjectId, answers, grade, questionIndex, recoverableSession, rewindOpen, seconds, sessionQs, sessionStartedAt, subject, user?.id])
   useEffect(() => { if (!toast) return; const id = window.setTimeout(() => setToast(''), 3200); return () => window.clearTimeout(id) }, [toast])
 
+  // Replay offline answer writes when connectivity returns. The database RPC is
+  // idempotent by (session_id, question_position), so retries cannot duplicate attempts.
+  useEffect(() => {
+    if (!user || !supabase || pendingAnswerWrites.length === 0) return
+    let active = true
+    let syncing = false
+    const syncPending = async () => {
+      if (!active || syncing || !navigator.onLine) return
+      syncing = true
+      let synced = 0
+      for (const item of pendingAnswerWrites) {
+        const { error } = await supabase.rpc('record_study_answer', {
+          p_session_id: item.sessionId,
+          p_question_id: item.questionId,
+          p_topic: item.topic,
+          p_question_position: item.questionPosition,
+          p_response: item.response,
+          p_is_correct: item.isCorrect,
+          p_session_state: item.sessionState,
+          p_duration_seconds: item.durationSeconds,
+        })
+        if (error) {
+          console.warn('Offline answer sync is still pending:', error.message)
+          break
+        }
+        synced += 1
+      }
+      if (active && synced > 0) {
+        const remaining = pendingAnswerWrites.slice(synced)
+        setPendingAnswerWrites(remaining)
+        save(userStorageKey(user.id, 'pending-answer-sync'), remaining)
+        setToast(remaining.length
+          ? `${synced} offline answer(s) synced. ${remaining.length} still waiting for a connection.`
+          : 'Offline answers synced to your account.')
+      }
+      syncing = false
+    }
+    window.addEventListener('online', syncPending)
+    void syncPending()
+    return () => {
+      active = false
+      window.removeEventListener('online', syncPending)
+    }
+  }, [user?.id, pendingAnswerWrites])
+
+
   // Auth state.
   useEffect(() => {
     if (!supabase) return
@@ -172,6 +229,7 @@ function App() {
     setRecoverableSession(load<SessionSnapshot | null>(userStorageKey(userId, 'active-session'), null))
     setSessions(load<Session[]>(userStorageKey(userId, 'sessions'), []))
     setAttempts(load<Attempt[]>(userStorageKey(userId, 'attempts'), []))
+    setPendingAnswerWrites(load<PendingAnswerSync[]>(userStorageKey(userId, 'pending-answer-sync'), []))
     setFlashcardReviews(load<Record<string, FlashcardReviewState>>(userStorageKey(userId, 'flashcard-reviews'), {}))
     setMistakeSearch(''); setActiveReviewId(null); setFlashcardRevealed(false)
     setWeak([]); setGrade('12'); setSubject('Physical Science'); setSelectedSubjectIds(['physical-science']); setCatalogueSearch(''); setAllSubjectsOpen(false); setExamDate(dateAfterDays(20))
