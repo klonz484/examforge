@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
+import { analyseProgress, scopeProgressAttempts } from '../../src/data/progressIntelligence'
+import { PRACTICE_QUESTIONS } from '../../src/data/practiceQuestions'
 
 const url = process.env.VITE_SUPABASE_URL
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY
@@ -57,7 +59,7 @@ test('Supabase study data and private notes enforce per-account access', async (
   const answerSave = await accountA.rpc('record_study_answer', {
     p_session_id: session.data!.id,
     p_question_id: 'math-g12-algebra-001',
-    p_topic: `E2E Test ${marker}`,
+    p_topic: 'Algebra',
     p_question_position: 0,
     p_response: { selected: 0 },
     p_is_correct: true,
@@ -73,6 +75,42 @@ test('Supabase study data and private notes enforce per-account access', async (
     p_total_questions: 1,
   })
   expect(completion.error).toBeNull()
+
+  // Progress must be calculated from the saved account row and its stored context,
+  // not from local demo state or a matching topic label on another grade/subject.
+  const savedProgressRows = await accountA.from('question_attempts')
+    .select('topic,is_correct,attempted_at,question_id,subject_id,grade')
+    .eq('study_session_id', session.data!.id)
+  expect(savedProgressRows.error).toBeNull()
+  expect(savedProgressRows.data).toHaveLength(1)
+  expect(savedProgressRows.data![0]).toMatchObject({
+    topic: 'Algebra', subject_id: 'mathematics', grade: 12, is_correct: true,
+  })
+  const accountAAttempts = savedProgressRows.data!.map(row => ({
+    topic: String(row.topic),
+    correct: Boolean(row.is_correct),
+    t: new Date(String(row.attempted_at)).getTime(),
+    questionId: String(row.question_id),
+    subjectId: String(row.subject_id),
+    grade: Number(row.grade),
+  }))
+  const accountAScoped = scopeProgressAttempts(accountAAttempts, 'mathematics', 12, PRACTICE_QUESTIONS)
+  const accountAProgress = analyseProgress(accountAScoped, ['Algebra', 'Functions'])
+  expect(accountAProgress.topics[0]).toMatchObject({ attempts: 1, correct: 1, accuracy: 100, evidenceStatus: 'insufficient-sample' })
+  expect(accountAProgress.recommendedTopic).toBeNull()
+
+  const accountBRows = await accountB.from('question_attempts')
+    .select('topic,is_correct,attempted_at,question_id,subject_id,grade')
+    .eq('user_id', signInB.data.user!.id)
+  expect(accountBRows.error).toBeNull()
+  expect(accountBRows.data).toHaveLength(0)
+  const accountBProgress = analyseProgress(
+    scopeProgressAttempts([], 'mathematics', 12, PRACTICE_QUESTIONS),
+    ['Algebra', 'Functions'],
+  )
+  expect(accountBProgress.topics.every(topic => topic.attempts === 0)).toBe(true)
+  expect(accountBProgress.recommendedTopic).toBeNull()
+  expect(accountBProgress.recentAccuracy).toBeNull()
 
   const attempt = await accountA.from('question_attempts').insert({
     source_type: 'seed',
