@@ -13,7 +13,7 @@
 - The GitHub Pages deployment workflow on the latest main commit completed successfully: run [42354496490](https://github.com/klonz484/examforge/actions/runs/42354496490).
 - The package lockfile was synchronised in the shared UI PR history; the current main verification workflow uses `npm ci`.
 - PR #1, “Add reuse-first engineering and contribution workflow”, remains open and unmerged as of 8 November 2026. It is separate from PR #3 and was not changed in this run.
-- The foundation branch remains based on main commit `259df190812ad9d47405d3402b90998fafbd2fc3`; the current comparison is 213 commits ahead and 0 behind. Current head is `6709e144d0b2be3c0e68f2063b4e6bcc6f52b3ee`. The branch now contains the Phase 0–5 implementation; Phases 0–4 are complete on this branch and Phase 5 remains gated for provider/OCR approval.
+- The foundation branch remains based on main commit `259df190812ad9d47405d3402b90998fafbd2fc3`; the current comparison is 213 commits ahead and 0 behind. Latest code-verified head before this progress-documentation update is `6709e144d0b2be3c0e68f2063b4e6bcc6f52b3ee`. The branch now contains the Phase 0–5 implementation; Phases 0–4 are complete on this branch and Phase 5 remains gated for provider/OCR approval.
 - The old `feat/verified-seven-subject-package` branch is substantially diverged: 50 commits ahead and 42 behind `main`. It must not be merged wholesale.
 
 ## 2. Verification workflow added
@@ -28,7 +28,7 @@ It:
 - Uses read-only repository permissions.
 - Does not deploy to GitHub Pages or modify Supabase.
 
-Initial run: [42389573231](https://github.com/klonz484/examforge/actions/runs/42389573231). It was queued/in progress at the time of this audit; do not treat it as passed until its final conclusion is successful.
+Initial run: [42389573231](https://github.com/klonz484/examforge/actions/runs/42389573231) was an early baseline run. Later full foundation verification runs #332 and #351 provide the current phase-completion evidence.
 
 ## 3. Candidate work found on the old subject branch
 
@@ -127,7 +127,7 @@ Phase 1 has met its automated exit criteria on `foundation/examforge-foundation-
 
 ## 10. Phase 2 implementation and verification — 8 November 2026
 
-Phase 2 implementation has been delivered on the foundation branch. The final exit gate remains open because the guarded cloud-auth round-trip test was skipped without a disposable Supabase staging environment.
+Phase 2 implementation is complete on the foundation branch. The first verification run skipped the guarded cloud-auth round-trip; run #332 later closed that gate using disposable local Supabase.
 
 - Question bank: stable Grade 12 Mathematics/Physical Sciences IDs; topic, grade, subject, correct answer, explanation and explicit original-practice provenance; not represented as official DBE content.
 - Learning loop: 20-minute focus target, question selection, marking, explanations, session summary, save/exit, resume after reload, and abandon.
@@ -147,7 +147,7 @@ Phase 2 implementation has been delivered on the foundation branch. The final ex
 
 **Phase 2: COMPLETE on the foundation branch only.** PR #3 remains open and unmerged; no production migration, merge or deployment occurred.
 
-**Content boundary:** Grade 12 Mathematics and Physical Sciences only are currently populated. Questions are original ExamForge practice, not official DBE questions. Broader grade/subject coverage and official paper ingestion remain later roadmap work.
+**Content boundary:** The initial Phase 2 question bank covered Grade 12 Mathematics and Physical Sciences. Phase 3 expanded original practice coverage to Grade 10–12 Mathematics and Physical Sciences. All questions remain ExamForge original practice, not official DBE questions. The paper catalogue links to DBE archive index pages; PDFs are not re-hosted or ingested.
 
 No live Supabase migration, main merge or Pages deployment occurred. PR #3 remains open.
 
