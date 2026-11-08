@@ -73,7 +73,7 @@ test('Supabase study data and private notes enforce per-account access', async (
     source_label: 'ExamForge original practice',
     session_state: { questionIndex: 0, answers: [] },
     duration_seconds: 0,
-    total_questions: 1,
+    total_questions: 2,
     completed_at: null,
   }).select('id').single()
   expect(session.error).toBeNull()
@@ -86,16 +86,27 @@ test('Supabase study data and private notes enforce per-account access', async (
     p_question_position: 0,
     p_response: { selected: 0 },
     p_is_correct: true,
-    p_session_state: { questionIndex: 1, answers: [0] },
+    p_session_state: { questionIndex: 1, answers: [0, 3] },
     p_duration_seconds: 42,
   })
   expect(answerSave.error).toBeNull()
+  const secondAnswerSave = await accountA.rpc('record_study_answer', {
+    p_session_id: session.data!.id,
+    p_question_id: 'math-g12-functions-001',
+    p_topic: 'Functions',
+    p_question_position: 1,
+    p_response: { selected: 3 },
+    p_is_correct: false,
+    p_session_state: { questionIndex: 2, answers: [0, 3] },
+    p_duration_seconds: 84,
+  })
+  expect(secondAnswerSave.error).toBeNull()
   const completion = await accountA.rpc('complete_study_session', {
     p_session_id: session.data!.id,
-    p_session_state: { questionIndex: 1, answers: [0], completed: true },
-    p_duration_seconds: 42,
+    p_session_state: { questionIndex: 2, answers: [0, 3], completed: true },
+    p_duration_seconds: 84,
     p_score: 1,
-    p_total_questions: 1,
+    p_total_questions: 2,
   })
   expect(completion.error).toBeNull()
 
@@ -105,10 +116,11 @@ test('Supabase study data and private notes enforce per-account access', async (
     .select('topic,is_correct,attempted_at,question_id,subject_id,grade')
     .eq('study_session_id', session.data!.id)
   expect(savedProgressRows.error).toBeNull()
-  expect(savedProgressRows.data).toHaveLength(1)
-  expect(savedProgressRows.data![0]).toMatchObject({
-    topic: 'Algebra', subject_id: 'mathematics', grade: 12, is_correct: true,
-  })
+  expect(savedProgressRows.data).toHaveLength(2)
+  expect(savedProgressRows.data).toEqual(expect.arrayContaining([
+    expect.objectContaining({ topic: 'Algebra', subject_id: 'mathematics', grade: 12, is_correct: true }),
+    expect.objectContaining({ topic: 'Functions', subject_id: 'mathematics', grade: 12, is_correct: false }),
+  ]))
   const accountAAttempts = savedProgressRows.data!.map(row => ({
     topic: String(row.topic),
     correct: Boolean(row.is_correct),
@@ -119,8 +131,14 @@ test('Supabase study data and private notes enforce per-account access', async (
   }))
   const accountAScoped = scopeProgressAttempts(accountAAttempts, 'mathematics', 12, PRACTICE_QUESTIONS)
   const accountAProgress = analyseProgress(accountAScoped, ['Algebra', 'Functions'])
-  expect(accountAProgress.topics[0]).toMatchObject({ attempts: 1, correct: 1, accuracy: 100, evidenceStatus: 'insufficient-sample' })
+  expect(accountAProgress.recentAttempts).toBe(2)
+  expect(accountAProgress.recentAccuracy).toBe(50)
+  expect(accountAProgress.topics).toEqual(expect.arrayContaining([
+    expect.objectContaining({ topic: 'Algebra', attempts: 1, correct: 1, accuracy: 100, evidenceStatus: 'insufficient-sample' }),
+    expect.objectContaining({ topic: 'Functions', attempts: 1, correct: 0, accuracy: 0, evidenceStatus: 'insufficient-sample' }),
+  ]))
   expect(accountAProgress.recommendedTopic).toBeNull()
+  expect(accountAProgress.trend).toBe('insufficient-data')
 
   const accountBRows = await accountB.from('question_attempts')
     .select('topic,is_correct,attempted_at,question_id,subject_id,grade')
