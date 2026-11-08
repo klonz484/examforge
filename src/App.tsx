@@ -7,6 +7,7 @@ import { CAPS_SUBJECTS, searchCapsSubjects, type CapsSubject } from './data/caps
 import { PRACTICE_QUESTIONS, selectPracticeQuestions, type PracticeQuestion } from './data/practiceQuestions'
 import { CAPS_ROADMAPS } from './data/capsRoadmaps'
 import { OFFICIAL_PAPER_ARCHIVES } from './data/examArchives'
+import { REVISION_FLASHCARDS, scheduleFlashcardReview, type FlashcardRating, type FlashcardReview } from './data/flashcards'
 import { isFlashcardDue, scheduleFlashcardReview, type FlashcardReviewState, type ReviewGrade } from './data/spacedRepetition'
 
 type Tab = 'Dashboard' | 'Past Papers' | 'Upload Notes' | 'Progress'
@@ -23,6 +24,7 @@ type Attempt = { topic: string; correct: boolean; t: number; sessionId?: string;
 type SessionSnapshot = { id?: string; updatedAt?: string; subject: string; subjectId: string; grade: number; questions: PracticeQuestion[]; questionIndex: number; answers: number[]; seconds: number; startedAt: string }
 type SessionSummary = { session: Session; questions: PracticeQuestion[]; answers: number[] }
 type Profile = { grade: string; examDate: string; subject: string; weak: string[] }
+type RemoteFlashcardReview = { question_id: string; interval_days: number; ease_factor: number; repetitions: number; last_grade: number | null; last_reviewed_at: string | null; next_review_at: string }
 
 function load<T>(key: string, fallback: T): T {
   try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as T) : fallback } catch { return fallback }
@@ -63,6 +65,8 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [remoteDates, setRemoteDates] = useState<string[]>([])
   const [attempts, setAttempts] = useState<Attempt[]>([])
+  const [flashcardReviews, setFlashcardReviews] = useState<Record<string, FlashcardReview>>({})
+  const [flashcardRevealed, setFlashcardRevealed] = useState(false)
   const [flashcardReviews, setFlashcardReviews] = useState<Record<string, FlashcardReviewState>>({})
   const [mistakeSearch, setMistakeSearch] = useState('')
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null)
@@ -112,6 +116,14 @@ function App() {
   const subjectAttempts = attempts.filter(a => topics.includes(a.topic))
   const masteryFor = (t: string) => { const rows = attempts.filter(a => a.topic === t).slice(-20); return rows.length ? Math.round(100 * rows.filter(r => r.correct).length / rows.length) : null }
   const accuracy = subjectAttempts.length ? Math.round(100 * subjectAttempts.filter(a => a.correct).length / subjectAttempts.length) : null
+  const incorrectQuestionIds = new Set(attempts.filter(attempt => !attempt.correct && attempt.questionId).map(attempt => attempt.questionId as string))
+  const subjectFlashcards = REVISION_FLASHCARDS.filter(card => card.subjectId === activeSubjectId && incorrectQuestionIds.has(card.questionId))
+  const dueFlashcards = subjectFlashcards.filter(card => !flashcardReviews[card.questionId] || flashcardReviews[card.questionId].dueAt <= today)
+  const nextFlashcardDue = subjectFlashcards
+    .map(card => flashcardReviews[card.questionId]?.dueAt)
+    .filter((date): date is string => Boolean(date))
+    .sort()[0]
+  const currentFlashcard = dueFlashcards[0]
   const mistakeQuestions = useMemo(() => {
     const ids = Array.from(new Set(attempts.filter(item => !item.correct && item.questionId).map(item => item.questionId!)))
     return ids.map(id => PRACTICE_QUESTIONS.find(question => question.id === id)).filter((item): item is PracticeQuestion => Boolean(item))
@@ -153,6 +165,8 @@ function App() {
     setRecoverableSession(load<SessionSnapshot | null>(userStorageKey(userId, 'active-session'), null))
     setSessions(load<Session[]>(userStorageKey(userId, 'sessions'), []))
     setAttempts(load<Attempt[]>(userStorageKey(userId, 'attempts'), []))
+    setFlashcardReviews(load<Record<string, FlashcardReview>>(userStorageKey(userId, 'flashcard-reviews'), {}))
+    setFlashcardRevealed(false)
     setFlashcardReviews(load<Record<string, FlashcardReviewState>>(userStorageKey(userId, 'flashcard-reviews'), {}))
     setMistakeSearch(''); setActiveReviewId(null); setFlashcardRevealed(false)
     setWeak([]); setGrade('12'); setSubject('Physical Science'); setSelectedSubjectIds(['physical-science']); setCatalogueSearch(''); setAllSubjectsOpen(false); setExamDate(dateAfterDays(20))
@@ -236,6 +250,29 @@ function App() {
         }))
         setAttempts(hydratedAttempts)
         save(userStorageKey(userId, 'attempts'), hydratedAttempts)
+      }
+      const { data: reviewRows, error: reviewError } = await client.from('flashcard_reviews')
+        .select('question_id,interval_days,ease_factor,repetitions,last_grade,last_reviewed_at,next_review_at')
+        .eq('user_id', userId)
+      if (active && !reviewError && reviewRows) {
+        const localReviews = load<Record<string, FlashcardReview>>(userStorageKey(userId, 'flashcard-reviews'), {})
+        const remoteReviews = (reviewRows as RemoteFlashcardReview[]).reduce<Record<string, FlashcardReview>>((result, row) => {
+          result[row.question_id] = {
+            flashcardId: row.question_id,
+            repetitions: Number(row.repetitions),
+            intervalDays: Number(row.interval_days),
+            easeFactor: Number(row.ease_factor),
+            dueAt: new Date(row.next_review_at).toLocaleDateString('en-CA'),
+            lastReviewedAt: row.last_reviewed_at ?? new Date().toISOString(),
+            rating: (['again','hard','good','easy'][row.last_grade ?? 0] ?? 'again') as FlashcardRating,
+          }
+          return result
+        }, {})
+        const mergedReviews = { ...localReviews, ...remoteReviews }
+        setFlashcardReviews(mergedReviews)
+        save(userStorageKey(userId, 'flashcard-reviews'), mergedReviews)
+      } else if (active && reviewError) {
+        console.warn('Could not load cloud flashcard reviews:', reviewError.message)
       }
       const { data: reviewRows, error: reviewError } = await client.from('flashcard_reviews')
         .select('question_id,interval_days,ease_factor,repetitions,last_grade,last_reviewed_at,next_review_at,updated_at')
