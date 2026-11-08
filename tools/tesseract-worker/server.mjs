@@ -12,10 +12,12 @@ const TOKEN = process.env.TESSERACT_WORKER_TOKEN || ""
 const MAX_BYTES = 10 * 1024 * 1024
 const MAX_PAGES = 30
 const MAX_TEXT = 8000
-const TIMEOUT_MS = 15000
+const TIMEOUT_MS = 20000
 const MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"])
+const ALLOWED_LANGUAGES = new Set((process.env.TESSERACT_ALLOWED_LANGUAGES || "eng,afr").split(",").map(x => x.trim()).filter(Boolean))
 
 if (!TOKEN || TOKEN.length < 32) { process.stderr.write("TESSERACT_WORKER_TOKEN must contain at least 32 characters.\n"); process.exit(1) }
+if (!ALLOWED_LANGUAGES.has("eng")) { process.stderr.write("English traineddata must remain installed.\n"); process.exit(1) }
 
 function send(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" })
@@ -23,7 +25,7 @@ function send(res, status, body) {
 }
 
 function authorised(req) {
-  const supplied = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1] || ""
+  const supplied = req.headers.authorization?.match(/^Bearer\\s+(.+)$/i)?.[1] || ""
   const left = Buffer.from(supplied), right = Buffer.from(TOKEN)
   return left.length === right.length && timingSafeEqual(left, right)
 }
@@ -51,10 +53,19 @@ function hasExpectedSignature(bytes, mimeType) {
 }
 
 function cleanText(value) {
-  return value.replace(/\u0000/g, "").replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, MAX_TEXT)
+  return value.replace(/\\u0000/g, "").replace(/[\\u0001-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/g, " ").replace(/[ \\t]+/g, " ").replace(/\\n{3,}/g, "\\n\\n").trim().slice(0, MAX_TEXT)
 }
 
-async function processFile(bytes, mimeType) {
+function requestedLanguages(req) {
+  const raw = String(req.headers["x-ocr-languages"] || "eng+afr")
+  const values = raw.split("+")
+  if (!values.length || values.length > 3 || values.some(value => !/^[a-z_]{3,12}$/.test(value) || !ALLOWED_LANGUAGES.has(value))) {
+    throw Object.assign(new Error("Requested OCR languages are not enabled on this worker."), { status: 400 })
+  }
+  return [...new Set(values)].join("+")
+}
+
+async function processFile(bytes, mimeType, languages) {
   if (!hasExpectedSignature(bytes, mimeType)) throw Object.assign(new Error("File signature does not match its declared MIME type."), { status: 415 })
   const deadline = Date.now() + TIMEOUT_MS
   const dir = await mkdtemp(path.join(os.tmpdir(), "examforge-ocr-"))
@@ -64,30 +75,54 @@ async function processFile(bytes, mimeType) {
     let images = []
     if (mimeType === "application/pdf") {
       const info = await command("pdfinfo", [input], deadline)
-      const match = info.stdout.match(/^Pages:\s+(\d+)/m), pages = Number(match?.[1] || 0)
+      const match = info.stdout.match(/^Pages:\\s+(\\d+)/m), pages = Number(match?.[1] || 0)
       if (!Number.isInteger(pages) || pages < 1 || pages > MAX_PAGES) throw Object.assign(new Error("PDF page count is outside the allowed range."), { status: 422 })
       const prefix = path.join(dir, "page")
       await command("pdftoppm", ["-f", "1", "-l", String(pages), "-scale-to", "2500", "-png", input, prefix], deadline)
-      images = (await readdir(dir)).filter(name => /^page-\d+\.png$/.test(name)).sort((a,b) => Number(a.match(/\d+/)?.[0]) - Number(b.match(/\d+/)?.[0])).map(name => path.join(dir, name))
+      images = (await readdir(dir)).filter(name => /^page-\\d+\\.png$/.test(name)).sort((a,b) => Number(a.match(/\\d+/)?.[0]) - Number(b.match(/\\d+/)?.[0])).map(name => path.join(dir, name))
       if (images.length !== pages) throw new Error("PDF page rendering did not complete.")
     } else { images = [input] }
-    const output = []
+
+    const textPages = [], equationPages = []
     for (let index = 0; index < images.length; index++) {
-      const result = await command("tesseract", [images[index], "stdout", "-l", "eng", "--psm", "3"], deadline)
-      output.push("[Page " + (index + 1) + "]\n" + result.stdout)
+      const normalized = path.join(dir, "normalized-" + index + ".png")
+      await command("convert", [images[index], "-auto-orient", "-colorspace", "Gray", "-deskew", "40%", "-resize", "200%", "-contrast", normalized], deadline)
+      const textResult = await command("tesseract", [normalized, "stdout", "-l", languages, "--oem", "1", "--psm", "3"], deadline)
+      textPages.push("[Page " + (index + 1) + "]\\n" + textResult.stdout)
+
+      // A separate high-resolution, character-preserving pass targets simple
+      // printed linear formulas. It is best-effort OCR, not symbolic parsing.
+      const equationResult = await command("tesseract", [normalized, "stdout", "-l", "eng", "--oem", "1", "--psm", "6", "-c", "preserve_interword_spaces=1"], deadline)
+      equationPages.push("[Page " + (index + 1) + "]\\n" + equationResult.stdout)
     }
-    const text = cleanText(output.join("\n\n"))
-    return { text, pageCount: images.length, engine: "tesseract", language: "eng", qualityStatus: text.length >= 100 ? "ocr-text-extracted" : "ocr-insufficient-text", confidenceStatus: "not-calibrated" }
+    const text = cleanText(textPages.join("\\n\\n"))
+    const equationText = cleanText(equationPages.join("\\n\\n"))
+    return {
+      text,
+      equationText,
+      pageCount: images.length,
+      engine: "tesseract",
+      languages,
+      qualityStatus: text.length >= 100 ? "ocr-text-extracted" : "ocr-insufficient-text",
+      equationStatus: /[=<>±×÷√∫∑^_]/u.test(equationText) ? "equation-symbols-detected-best-effort" : "no-equation-symbols-detected",
+      confidenceStatus: "not-calibrated",
+    }
   } finally { await rm(dir, { recursive: true, force: true }) }
 }
 
 const server = http.createServer(async (req, res) => {
-  if (req.method === "GET" && req.url === "/health") return send(res, 200, { status: "ok", engine: "tesseract" })
+  if (req.method === "GET" && req.url === "/health") return send(res, 200, { status: "ok", engine: "tesseract", languages: [...ALLOWED_LANGUAGES] })
   if (req.method !== "POST" || req.url !== "/ocr") return send(res, 404, { error: "Not found." })
   if (!authorised(req)) return send(res, 401, { error: "Unauthorized." })
   const mimeType = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase()
   if (!MIME_TYPES.has(mimeType)) return send(res, 415, { error: "Unsupported OCR input type." })
-  try { const result = await processFile(await readBody(req), mimeType); return send(res, 200, result) }
-  catch (error) { const status = Number(error?.status) || (error?.killed ? 504 : 422); return send(res, status, { error: status === 504 ? "OCR processing timed out." : String(error?.message || "OCR failed.") }) }
+  try {
+    const languages = requestedLanguages(req)
+    const result = await processFile(await readBody(req), mimeType, languages)
+    return send(res, 200, result)
+  } catch (error) {
+    const status = Number(error?.status) || (error?.killed ? 504 : 422)
+    return send(res, status, { error: status === 504 ? "OCR processing timed out." : String(error?.message || "OCR failed.") })
+  }
 })
-server.listen(PORT, "0.0.0.0", () => process.stdout.write("Tesseract worker listening on port " + PORT + "\n"))
+server.listen(PORT, "0.0.0.0", () => process.stdout.write("Tesseract worker listening on port " + PORT + "\\n"))
