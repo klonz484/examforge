@@ -20,7 +20,7 @@ const SUBJECTS = {
 } as const
 
 function normalise(value: string): string {
-  return value.normalize('NFKC').trim().toLocaleLowerCase().replace(/\\s+/g, ' ')
+  return value.normalize('NFKC').trim().toLocaleLowerCase().replace(/\s+/g, ' ')
 }
 
 /**
