@@ -334,10 +334,11 @@ test('signed-in learner can recover a cloud session after sign-out and sign-in',
   await page.getByRole('button', { name: 'Sign out' }).click()
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /Account \/ sign in/ }).click()
-  await page.getByRole('button', { name: /Already have an account\? Sign in/ }).click()
+  // The auth dialog retains sign-in mode after the first successful login.
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
   await page.getByLabel('Email address').fill(emailC!)
   await page.getByLabel('Password').fill(passwordC!)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
 
   await expect(page.getByRole('button', { name: /Resume saved session/ })).toBeVisible()
   await page.getByRole('button', { name: /Resume saved session/ }).click()
