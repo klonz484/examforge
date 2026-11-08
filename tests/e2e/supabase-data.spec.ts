@@ -194,6 +194,18 @@ test('Supabase study data and private notes enforce per-account access', async (
   expect(note.error).toBeNull()
   expect(note.data?.id).toBeTruthy()
 
+  const extracted = await accountA.functions.invoke('extract-study-note', { body: { noteId: note.data!.id } })
+  expect(extracted.error).toBeNull()
+  expect(extracted.data.status).toBe('ready')
+  expect(extracted.data.extractedText).toContain('net force acting on an object')
+  const storedExtraction = await accountA.from('note_uploads')
+    .select('processing_status,extracted_text,extraction_metadata,extracted_at')
+    .eq('id', note.data!.id).single()
+  expect(storedExtraction.error).toBeNull()
+  expect(storedExtraction.data.processing_status).toBe('ready')
+  expect(storedExtraction.data.extracted_text).toContain('Newton')
+  expect(storedExtraction.data.extraction_metadata).toMatchObject({ parser: 'unpdf@2.1.0', pages: 1, requiresOcr: false })
+
   const ownNote = await accountA.from('note_uploads').select('id').eq('id', note.data!.id)
   expect(ownNote.error).toBeNull()
   expect(ownNote.data).toHaveLength(1)
