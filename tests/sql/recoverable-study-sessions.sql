@@ -44,6 +44,40 @@ on conflict (id) do nothing;
 
 \ir ../../supabase/migrations/003_recoverable_study_sessions.sql
 
+-- Simulate an existing completed session and attempt before the context migration.
+insert into public.study_sessions (
+  id, user_id, subject, session_type, status, grade, subject_id,
+  duration_seconds, completed_at
+) values (
+  '20000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000001',
+  'Physical Sciences', 'practice', 'completed', 11, 'physical-science',
+  60, now()
+);
+insert into public.question_attempts (
+  user_id, study_session_id, question_id, question_position,
+  source_type, topic, is_correct, response
+) values (
+  '10000000-0000-0000-0000-000000000001',
+  '20000000-0000-0000-0000-000000000002',
+  'science-g11-newton-001', 0, 'curated', 'Mechanics', false,
+  '{"selected":1}'::jsonb
+);
+
+\ir ../../supabase/migrations/006_progress_attempt_context.sql
+
+do $
+begin
+  if not exists (
+    select 1 from public.question_attempts
+    where study_session_id = '20000000-0000-0000-0000-000000000002'
+      and subject_id = 'physical-science' and grade = 11
+  ) then
+    raise exception 'Historical attempt was not backfilled from its saved session context';
+  end if;
+end;
+$;
+
 set role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', false);
 
@@ -105,8 +139,9 @@ begin
     select 1 from public.question_attempts
     where study_session_id = '20000000-0000-0000-0000-000000000001'
       and is_correct and response ->> 'selected' = '0'
+      and subject_id = 'mathematics' and grade = 12
   ) then
-    raise exception 'Question attempt was not updated to the latest submitted answer';
+    raise exception 'Saved attempt is missing grade/subject context from its study session';
   end if;
 end;
 $$;
