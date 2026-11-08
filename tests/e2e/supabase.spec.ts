@@ -16,6 +16,7 @@ function client() {
 }
 
 test('Supabase sign-in, full onboarding profile persistence, and profile RLS isolation', async ({ page }) => {
+  test.skip(process.env.RUN_LIVE_SUPABASE_E2E !== 'true' || process.env.SUPABASE_IS_DISPOSABLE_STAGING !== 'true', 'Requires an explicitly designated disposable Supabase staging project with the current migrations applied; never run against production.');
   expect(url).toBeTruthy()
   expect(anonKey).toBeTruthy()
   expect(emailA).toBeTruthy()
@@ -44,7 +45,7 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
 
   await page.locator('input[type="date"]').fill(dateValue)
   await page.getByRole('button', { name: 'Grade 12' }).click()
-  await page.getByRole('button', { name: /Physical Science/ }).click()
+  // Physical Sciences is already the default selected subject.
   await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
   await page.getByRole('button', { name: 'Electricity', exact: true }).click()
   await page.getByRole('button', { name: /Start Forging/ }).click()
@@ -57,20 +58,29 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
   await page.locator('input[type="email"]').fill(emailA!)
   await page.locator('input[type="password"]').fill(passwordA!)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByText('You are signed in.')).toBeVisible()
+  await expect(page.getByRole('dialog')).not.toBeVisible()
+  // Wait until the account-scoped profile hydration has completed before editing settings.
+  await page.waitForFunction(() => Object.keys(localStorage).some(key => key.startsWith('ef:') && key.endsWith(':profile')))
 
   // Test an existing account too: explicitly save the edited focus instead of assuming
   // a previously-used test account has no profile row.
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('button', { name: /Study settings/ }).click()
   await page.locator('input[type="date"]').fill(dateValue)
-  await page.getByRole('button', { name: /Mathematics/ }).click()
-  await page.getByRole('button', { name: /Physical Science/ }).click()
-  await page.getByRole('button', { name: 'Grade 12' }).click()
-  await page.getByRole('button', { name: 'Mechanics', exact: true }).click()
-  await page.getByRole('button', { name: 'Electricity', exact: true }).click()
+  const mathematicsOption = page.getByRole('button', { name: 'Mathematics ATP-listed', exact: true })
+  if (await mathematicsOption.getAttribute('aria-pressed') !== 'true') await mathematicsOption.click()
+  const physicalScienceOption = page.getByRole('button', { name: 'Physical Sciences ATP-listed', exact: true })
+  // This test verifies a Mathematics-only enrolment; Physical Sciences is selected
+  // by default during fresh onboarding, so explicitly remove it here.
+  if (await physicalScienceOption.getAttribute('aria-pressed') === 'true') await physicalScienceOption.click()
+  // Select Mathematics as the first study focus before choosing its topics.
+  await page.getByLabel('Choose your first study focus').selectOption('mathematics')
+  const selectedTopics = page.locator('.topic-pills .pill.selected')
+  while (await selectedTopics.count()) await selectedTopics.first().click()
+  await page.getByRole('button', { name: 'Algebra', exact: true }).click()
+  await page.getByRole('button', { name: 'Functions', exact: true }).click()
   await page.getByRole('button', { name: /Start Forging/ }).click()
-  await expect(page.getByText('Your study focus is set. Rewind first.')).toBeVisible()
+  await expect(page.getByText('Your study focus is saved. Rewind first.')).toBeVisible()
 
   const accountA = client()
   const signInA = await accountA.auth.signInWithPassword({ email: emailA!, password: passwordA! })
@@ -90,8 +100,8 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
     id: userA!.id,
     grade: 12,
     exam_date: dateValue,
-    primary_subject: 'Physical Science',
-    weak_topics: ['Mechanics', 'Electricity'],
+    primary_subject: 'Mathematics',
+    weak_topics: ['Algebra', 'Functions'],
   })
 
   const ownProfile = await accountA.from('profiles')
@@ -103,9 +113,14 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
     id: userA!.id,
     grade: 12,
     exam_date: dateValue,
-    primary_subject: 'Physical Science',
-    weak_topics: ['Mechanics', 'Electricity'],
+    primary_subject: 'Mathematics',
+    weak_topics: ['Algebra', 'Functions'],
   })
+
+  const ownSubjects = await accountA.from('learner_subjects')
+    .select('subject_id').eq('user_id', userA!.id).order('subject_id')
+  expect(ownSubjects.error).toBeNull()
+  expect(ownSubjects.data?.map(row => row.subject_id)).toEqual(['mathematics'])
 
   // A second account must not be able to read or overwrite the first student's profile.
   const accountB = client()
@@ -118,6 +133,16 @@ test('Supabase sign-in, full onboarding profile persistence, and profile RLS iso
     .eq('id', userA!.id)
   expect(crossAccountRead.error).toBeNull()
   expect(crossAccountRead.data).toEqual([])
+
+  const crossSubjectRead = await accountB.from('learner_subjects')
+    .select('user_id,subject_id').eq('user_id', userA!.id)
+  expect(crossSubjectRead.error).toBeNull()
+  expect(crossSubjectRead.data).toEqual([])
+
+  const forgedSubjectInsert = await accountB.from('learner_subjects').insert({
+    user_id: userA!.id, subject_id: 'forged-subject',
+  })
+  expect(forgedSubjectInsert.error).not.toBeNull()
 
   const forgedInsert = await accountB.from('profiles').insert({
     id: userA!.id,

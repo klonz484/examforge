@@ -29,3 +29,13 @@ Record the date, browser version, operating system, assistive technology/version
 - No serious/critical axe violations may be waived without a documented reason and owner.
 - Manual assistive-technology checks must be recorded before public accessibility claims are made.
 - Supabase Preview is a separate schema/migration environment check. It is expected to be skipped when a pull request does not change `supabase/**`; the independent authenticated profile/RLS browser test is the relevant check for this UI-only change.
+
+
+## Offline/PWA automated checks
+
+- [ ] Chromium service-worker test passes: first online load, service-worker activation, controlled reload, then offline reload from cached shell and assets.
+- [ ] Authenticated disposable-Supabase test passes: answer saved offline, then replayed idempotently after connectivity returns.
+- [ ] RLS and session ownership tests pass after recovery; repeated sync must not create duplicate attempts.
+- [ ] Bundle budget check passes: JavaScript gzip <= 180 KiB, CSS gzip <= 20 KiB, combined gzip <= 200 KiB.
+
+The automated offline test does not replace physical Android testing under airplane mode, intermittent mobile data, low storage or process termination.

@@ -14,7 +14,8 @@ test("ExamForge consumes shared navigation and modal form components", async ({ 
   date.setDate(date.getDate() + 30);
   const dateValue = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
   await page.locator('input[type="date"]').fill(dateValue);
-  await page.getByRole("button", { name: /Mathematics/ }).click();
+  await page.getByRole("button", { name: "Mathematics ATP-listed", exact: true }).click();
+  await page.getByLabel("Choose your first study focus").selectOption("mathematics");
   await page.getByRole("button", { name: "Algebra", exact: true }).click();
   await page.getByRole("button", { name: "Functions", exact: true }).click();
   await page.getByRole("button", { name: /Start Forging/ }).click();
@@ -26,6 +27,14 @@ test("ExamForge consumes shared navigation and modal form components", async ({ 
   await expect(nav.getByRole("link", { name: "Past Papers" })).toHaveAttribute("aria-current", "page");
   await nav.getByRole("link", { name: "Progress" }).click();
   await expect(page.getByRole("heading", { name: "Your Progress" })).toBeVisible();
+  const progressA11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  expect(progressA11y.violations, JSON.stringify(progressA11y.violations, null, 2)).toEqual([]);
+
+  await nav.getByRole("link", { name: "Upload" }).click();
+  await expect(page.getByRole("heading", { name: "Upload Notes" })).toBeVisible();
+  const uploadA11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  expect(uploadA11y.violations, JSON.stringify(uploadA11y.violations, null, 2)).toEqual([]);
+  await nav.getByRole("link", { name: "Progress" }).click();
 
   await page.getByRole("button", { name: "Menu" }).click();
   await page.getByRole("button", { name: /Account \/ sign in/ }).click();

@@ -13,8 +13,8 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', testIgnore: '**/supabase.spec.ts', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', testIgnore: '**/supabase.spec.ts', use: { ...devices['Desktop Safari'] } },
+    { name: 'firefox', testIgnore: ['**/supabase.spec.ts', '**/supabase-data.spec.ts', '**/offline-pwa.spec.ts'], use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', testIgnore: ['**/supabase.spec.ts', '**/supabase-data.spec.ts', '**/offline-pwa.spec.ts'], use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
     // Build into a separate folder using the real GitHub Pages base path.
