@@ -23,7 +23,7 @@ const MAX_NOTE_BYTES = 10 * 1024 * 1024
 
 type Session = { date: string; score: number; seconds: number; subject: string }
 type Attempt = { topic: string; correct: boolean; t: number; sessionId?: string; questionId?: string; response?: { selected: number } }
-type SessionSnapshot = { id?: string; subject: string; subjectId: string; grade: number; questions: PracticeQuestion[]; questionIndex: number; answers: number[]; seconds: number; startedAt: string }
+type SessionSnapshot = { id?: string; updatedAt?: string; subject: string; subjectId: string; grade: number; questions: PracticeQuestion[]; questionIndex: number; answers: number[]; seconds: number; startedAt: string }
 type SessionSummary = { session: Session; questions: PracticeQuestion[]; answers: number[] }
 type Profile = { grade: string; examDate: string; subject: string; weak: string[] }
 
@@ -118,7 +118,7 @@ function App() {
     if (!sessionQs.length || !sessionStartedAt || (!rewindOpen && !recoverableSession)) return
     const snapshot: SessionSnapshot = {
       id: activeSessionId ?? undefined, subject, subjectId: activeSubjectId,
-      grade: Number(grade), questions: sessionQs, questionIndex, answers, seconds, startedAt: sessionStartedAt,
+      grade: Number(grade), questions: sessionQs, questionIndex, answers, seconds, startedAt: sessionStartedAt, updatedAt: new Date().toISOString(),
     }
     save(userStorageKey(user?.id ?? null, 'active-session'), snapshot)
   }, [activeSessionId, activeSubjectId, answers, grade, questionIndex, recoverableSession, rewindOpen, seconds, sessionQs, sessionStartedAt, subject, user?.id])
@@ -197,9 +197,13 @@ function App() {
         setSessions(completed.map(r => ({ date: localDate(new Date(r.completed_at as string)), score: Number(r.score ?? 0), seconds: Number(r.duration_seconds ?? 0), subject: String(r.subject) })))
         const inProgress = rows.find(r => r.status === 'in_progress' && r.session_state)
         if (inProgress) {
-          const snapshot = inProgress.session_state as unknown as SessionSnapshot
-          setRecoverableSession({ ...snapshot, id: String(inProgress.id), seconds: Number(inProgress.duration_seconds ?? snapshot.seconds ?? 0) })
-          save(userStorageKey(userId, 'active-session'), { ...snapshot, id: String(inProgress.id) })
+          const remoteSnapshot = inProgress.session_state as unknown as SessionSnapshot
+          const localSnapshot = load<SessionSnapshot | null>(userStorageKey(userId, 'active-session'), null)
+          const remoteUpdated = new Date(String(inProgress.last_activity_at)).getTime()
+          const localUpdated = localSnapshot?.id === String(inProgress.id) ? new Date(localSnapshot.updatedAt ?? 0).getTime() : 0
+          const snapshot = localUpdated > remoteUpdated ? localSnapshot! : { ...remoteSnapshot, id: String(inProgress.id), seconds: Number(inProgress.duration_seconds ?? remoteSnapshot.seconds ?? 0) }
+          setRecoverableSession(snapshot)
+          save(userStorageKey(userId, 'active-session'), snapshot)
         } else {
           setRecoverableSession(null)
           localStorage.removeItem(userStorageKey(userId, 'active-session'))
@@ -290,7 +294,7 @@ function App() {
       questionIndex,
       answers,
       seconds,
-      startedAt: sessionStartedAt || new Date().toISOString(),
+      startedAt: sessionStartedAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
       ...overrides,
     }
   }
@@ -336,7 +340,7 @@ function App() {
   }
   async function finishRewind() {
     const finalScore = answers.reduce((n, answer, index) => n + (sessionQs[index] && answer === sessionQs[index].answer ? 1 : 0), 0)
-    const finalSnapshot = makeSessionSnapshot({ questionIndex: sessionQs.length, seconds, answers })
+    const finalSnapshot = makeSessionSnapshot({ seconds, answers })
     if (!finalSnapshot) return
     if (user && supabase) {
       if (!activeSessionId) { setToast('This session has no saved account record. Keep it open and retry.'); return }
@@ -376,8 +380,7 @@ function App() {
       })
       if (error) {
         console.error('Answer persistence failed:', error.message)
-        save(userStorageKey(user.id, 'active-session'), snapshot)
-        setToast('Answer not synced yet. Your choice is kept on this device; retry before moving on.')
+        setToast('Answer not synced. Please check your connection and select your answer again before moving on.')
         return
       }
     }
