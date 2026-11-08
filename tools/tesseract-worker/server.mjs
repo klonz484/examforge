@@ -37,7 +37,7 @@ async function readBody(req) {
   return Buffer.concat(chunks, total)
 }
 
-async function command(file, args) { return execFileAsync(file, args, { timeout: TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024, windowsHide: true }) }
+async function command(file, args, deadline) { const remaining = deadline - Date.now(); if (remaining <= 0) throw Object.assign(new Error("OCR processing timed out."), { killed: true }); return execFileAsync(file, args, { timeout: remaining, maxBuffer: 2 * 1024 * 1024, windowsHide: true }) }
 function cleanText(value) { return value.replace(/\u0000/g, "").replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, MAX_TEXT) }
 
 async function processFile(bytes, mimeType) {
@@ -47,17 +47,17 @@ async function processFile(bytes, mimeType) {
     await writeFile(input, bytes, { mode: 0o600 })
     let images = []
     if (mimeType === "application/pdf") {
-      const info = await command("pdfinfo", [input])
+      const info = await command("pdfinfo", [input], deadline)
       const match = info.stdout.match(/^Pages:\s+(\d+)/m), pages = Number(match?.[1] || 0)
       if (!Number.isInteger(pages) || pages < 1 || pages > MAX_PAGES) throw Object.assign(new Error("PDF page count is outside the allowed range."), { status: 422 })
       const prefix = path.join(dir, "page")
-      await command("pdftoppm", ["-f", "1", "-l", String(pages), "-r", "180", "-png", input, prefix])
+      await command("pdftoppm", ["-f", "1", "-l", String(pages), "-scale-to", "2500", "-png", input, prefix], deadline)
       images = (await readdir(dir)).filter(name => /^page-\d+\.png$/.test(name)).sort((a,b) => Number(a.match(/\d+/)?.[0]) - Number(b.match(/\d+/)?.[0])).map(name => path.join(dir, name))
       if (images.length !== pages) throw new Error("PDF page rendering did not complete.")
     } else { images = [input] }
     const output = []
     for (let index = 0; index < images.length; index++) {
-      const result = await command("tesseract", [images[index], "stdout", "-l", "eng", "--psm", "3"])
+      const result = await command("tesseract", [images[index], "stdout", "-l", "eng", "--psm", "3"], deadline)
       output.push("[Page " + (index + 1) + "]\n" + result.stdout)
     }
     const text = cleanText(output.join("\n\n"))
