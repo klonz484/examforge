@@ -489,3 +489,27 @@ Phase 6 is not complete. The following work requires physical-device access, own
 
 Do not access or change the connected live Supabase project, GitHub Pages, main, production secrets or paid services to complete these tasks without separate explicit approval. The project remains a development-branch implementation, not a public-launch approval.
 
+
+
+## 17. Phase 5 non-production implementation update — 9 November 2026
+
+The project owner explicitly approved non-production implementation using mocked OpenAI responses and synthetic documents only. This approval does not authorise real provider calls, paid services, real learner data, production secrets, live migrations, deployment, merge to `main`, or release.
+
+**Work added on `feat/phase-5-nonproduction` / draft PR #4:**
+- A deterministic mock AI provider that performs no network calls.
+- Expanded output validation for JSON object shape, four distinct options, answer-index and confidence ranges, source-evidence matching, and instruction-like generated output.
+- Synthetic malformed-response and source prompt-injection tests.
+- A private, authenticated Tesseract worker with English and Afrikaans language packs, bounded PDF/image processing, page/size/time limits and temporary-file cleanup.
+- A separate best-effort equation-oriented pass for simple printed linear formula text. It is not symbolic mathematics and does not guarantee correct recognition of fractions, superscripts, matrices, diagrams, handwriting or complex notation.
+- An opt-in OCR adapter path for scanned PDFs and images. The CI Supabase environment keeps `OCR_WORKER_ENABLED=false`.
+- A CI runtime check requiring `generate-study-question` to return HTTP 503 with `AI_STUDY_ENABLED=false` and no provider credentials.
+
+**Current verification boundary:**
+- The first worker smoke test failed because its synthetic English fixture assertion was too strict; the OCR engine missed the leading letter in one word. The assertion was made tolerant without weakening authentication, MIME, signature or size checks.
+- The expanded worker smoke test now covers English/Afrikaans language handling, a simple formula, a synthetic PDF, the 30-page limit and temporary-directory cleanup. The full current-head CI run must pass before this work is considered verified.
+- Mock AI tests cover malformed JSON, null payloads, invalid answer indexes, invalid confidence, duplicate options, unsafe generated instructions, source evidence and zero mock-provider network calls.
+- The CI provider kill-switch test is intended to prove the runtime refuses generation before any provider request. Its result must be recorded from the current-head run, not inferred from configuration alone.
+
+**Phase 5 remains PARTIAL.** The mock implementation cannot prove real OpenAI response quality, provider-specific failure handling, actual token spend, vendor retention/region/subprocessor terms or POPIA compliance. The request quota is implemented, but real provider hard spend limits, token-level cost monitoring and alerts are not operational. Those items require separate owner/vendor/legal decisions and a later approval.
+
+PR #4 remains a draft and unmerged. No production deployment or live Supabase change has been made.
