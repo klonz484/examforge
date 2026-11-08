@@ -22,7 +22,9 @@ const ALLOWED_NOTE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'applicatio
 const MAX_NOTE_BYTES = 10 * 1024 * 1024
 
 type Session = { date: string; score: number; seconds: number; subject: string }
-type Attempt = { topic: string; correct: boolean; t: number }
+type Attempt = { topic: string; correct: boolean; t: number; sessionId?: string; questionId?: string; response?: { selected: number } }
+type SessionSnapshot = { id?: string; subject: string; subjectId: string; grade: number; questions: PracticeQuestion[]; questionIndex: number; answers: number[]; seconds: number; startedAt: string }
+type SessionSummary = { session: Session; questions: PracticeQuestion[]; answers: number[] }
 type Profile = { grade: string; examDate: string; subject: string; weak: string[] }
 
 function load<T>(key: string, fallback: T): T {
@@ -52,6 +54,10 @@ function App() {
   const [examDate, setExamDate] = useState(() => dateAfterDays(20))
   const [weak, setWeak] = useState<string[]>([])
   const [sessionQs, setSessionQs] = useState<PracticeQuestion[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [sessionStartedAt, setSessionStartedAt] = useState('')
+  const [recoverableSession, setRecoverableSession] = useState<SessionSnapshot | null>(null)
+  const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null)
   const [questionIndex, setQuestionIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [answers, setAnswers] = useState<number[]>([])
@@ -120,7 +126,8 @@ function App() {
   useEffect(() => {
     const userId = user?.id ?? null
     setTab('Dashboard'); setSessionQs([]); setQuestionIndex(0); setSelected(null); setAnswers([])
-    setRewindOpen(false); setSeconds(0); setRemoteDates([]); setNotes([]); setNoteStatus('')
+    setRewindOpen(false); setSeconds(0); setRemoteDates([]); setNotes([]); setNoteStatus(''); setActiveSessionId(null); setSessionStartedAt(''); setSessionSummary(null)
+    setRecoverableSession(load<SessionSnapshot | null>(userStorageKey(userId, 'active-session'), null))
     setSessions(userId ? load<Session[]>(userStorageKey(userId, 'sessions'), []) : [])
     setAttempts(userId ? load<Attempt[]>(userStorageKey(userId, 'attempts'), []) : [])
     setWeak([]); setGrade('12'); setSubject('Physical Science'); setSelectedSubjectIds(['physical-science']); setCatalogueSearch(''); setAllSubjectsOpen(false); setExamDate(dateAfterDays(20))
@@ -161,8 +168,34 @@ function App() {
         }
       }
       const { data: rows, error: sessionsError } = await client.from('study_sessions')
-        .select('completed_at').eq('user_id', userId).order('completed_at', { ascending: false }).limit(120)
-      if (active && !sessionsError && rows) setRemoteDates(rows.map(r => localDate(new Date(r.completed_at as string))))
+        .select('id,subject,subject_id,grade,status,session_state,score,total_questions,duration_seconds,completed_at,started_at,last_activity_at')
+        .eq('user_id', userId).order('last_activity_at', { ascending: false }).limit(120)
+      if (!active) return
+      if (!sessionsError && rows) {
+        const completed = rows.filter(r => r.status === 'completed' && r.completed_at)
+        setRemoteDates(completed.map(r => localDate(new Date(r.completed_at as string))))
+        setSessions(completed.map(r => ({ date: localDate(new Date(r.completed_at as string)), score: Number(r.score ?? 0), seconds: Number(r.duration_seconds ?? 0), subject: String(r.subject) })))
+        const inProgress = rows.find(r => r.status === 'in_progress' && r.session_state)
+        if (inProgress) {
+          const snapshot = inProgress.session_state as unknown as SessionSnapshot
+          setRecoverableSession({ ...snapshot, id: String(inProgress.id), seconds: Number(inProgress.duration_seconds ?? snapshot.seconds ?? 0) })
+          save(userStorageKey(userId, 'active-session'), { ...snapshot, id: String(inProgress.id) })
+        } else {
+          setRecoverableSession(null)
+          localStorage.removeItem(userStorageKey(userId, 'active-session'))
+        }
+      }
+      const { data: attemptRows, error: attemptsError } = await client.from('question_attempts')
+        .select('topic,is_correct,attempted_at,study_session_id,question_id,response')
+        .eq('user_id', userId).order('attempted_at', { ascending: true }).limit(500)
+      if (active && !attemptsError && attemptRows) {
+        setAttempts(attemptRows.map(row => ({
+          topic: String(row.topic), correct: Boolean(row.is_correct), t: new Date(row.attempted_at as string).getTime(),
+          sessionId: row.study_session_id ? String(row.study_session_id) : undefined,
+          questionId: row.question_id ? String(row.question_id) : undefined,
+          response: row.response as { selected: number } | undefined,
+        })))
+      }
     })()
     return () => { active = false }
   }, [user?.id])
