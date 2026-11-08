@@ -1,22 +1,6 @@
 name: Verify ExamForge foundation
 
 on:
-  push:
-    branches:
-      - "foundation/**"
-    paths:
-      - "src/**"
-      - "tests/**"
-      - "supabase/migrations/**"
-      - "supabase/config.toml"
-      - "supabase/functions/**"
-      - "tests/setup-local-supabase.mjs"
-      - ".github/workflows/verify-foundation.yml"
-      - "package.json"
-      - "package-lock.json"
-      - "playwright.config.ts"
-      - "vite.config.ts"
-      - "tsconfig*.json"
   pull_request:
     branches: [main]
     paths:
