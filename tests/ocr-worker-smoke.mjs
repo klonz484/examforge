@@ -1,5 +1,7 @@
 import { spawn, spawnSync } from "node:child_process"
 import { randomBytes } from "node:crypto"
+import { readdir } from "node:fs/promises"
+import { tmpdir } from "node:os"
 import { setTimeout as delay } from "node:timers/promises"
 
 const port = 18787
@@ -30,12 +32,38 @@ function syntheticImage(text, filename) {
   return read.stdout
 }
 
-async function postOcr(image, languages = "eng+afr") {
+async function postOcr(bytes, mimeType = "image/png", languages = "eng+afr") {
   return fetch(base + "/ocr", {
     method: "POST",
-    headers: { Authorization: "Bearer " + token, "Content-Type": "image/png", "X-OCR-Languages": languages },
-    body: image,
+    headers: { Authorization: "Bearer " + token, "Content-Type": mimeType, "X-OCR-Languages": languages },
+    body: bytes,
   })
+}
+
+function syntheticPdf(pageCount) {
+  const objects = []
+  objects[1] = "<< /Type /Catalog /Pages 2 0 R >>"
+  const pageRefs = Array.from({ length: pageCount }, (_, index) => (4 + index * 2) + " 0 R").join(" ")
+  objects[2] = "<< /Type /Pages /Kids [" + pageRefs + "] /Count " + pageCount + " >>"
+  objects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+  for (let index = 0; index < pageCount; index++) {
+    const pageId = 4 + index * 2
+    const contentId = pageId + 1
+    objects[pageId] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents " + contentId + " 0 R >>"
+    const text = "Synthetic Newton law: force equals mass times acceleration."
+    objects[contentId] = "<< /Length " + (text.length + 39) + " >>\nstream\nBT /F1 18 Tf 50 700 Td (" + text + ") Tj ET\nendstream"
+  }
+  let document = "%PDF-1.4\n"
+  const offsets = [0]
+  for (let id = 1; id < objects.length; id++) {
+    offsets[id] = Buffer.byteLength(document)
+    document += id + " 0 obj\n" + objects[id] + "\nendobj\n"
+  }
+  const xrefOffset = Buffer.byteLength(document)
+  document += "xref\n0 " + objects.length + "\n0000000000 65535 f \n"
+  for (let id = 1; id < objects.length; id++) document += String(offsets[id]).padStart(10, "0") + " 00000 n \n"
+  document += "trailer\n<< /Size " + objects.length + " /Root 1 0 R >>\nstartxref\n" + xrefOffset + "\n%%EOF"
+  return Buffer.from(document)
 }
 
 try {
@@ -82,6 +110,19 @@ try {
   if (!["equation-symbols-detected-best-effort", "no-equation-symbols-detected"].includes(equationPayload.equationStatus)) {
     throw new Error("Equation status must use an explicit bounded value.")
   }
+
+  const beforeTemp = new Set((await readdir(tmpdir())).filter(name => name.startsWith("examforge-ocr-")))
+  const syntheticOnePagePdf = syntheticPdf(1)
+  const pdfResponse = await postOcr(syntheticOnePagePdf, "application/pdf", "eng")
+  if (!pdfResponse.ok) throw new Error("Synthetic PDF OCR failed: " + await pdfResponse.text())
+  const pdfPayload = await pdfResponse.json()
+  if (pdfPayload.pageCount !== 1 || !/newton law/i.test(pdfPayload.text)) {
+    throw new Error("Synthetic scanned-PDF OCR did not return expected text: " + JSON.stringify(pdfPayload))
+  }
+  const oversizedPagePdf = await postOcr(syntheticPdf(31), "application/pdf", "eng")
+  if (oversizedPagePdf.status !== 422) throw new Error("Worker must reject PDFs exceeding 30 pages.")
+  const afterTemp = (await readdir(tmpdir())).filter(name => name.startsWith("examforge-ocr-"))
+  if (afterTemp.some(name => !beforeTemp.has(name))) throw new Error("OCR worker left temporary document directories behind.")
 
   const tooLarge = await fetch(base + "/ocr", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "image/png" }, body: Buffer.alloc(10 * 1024 * 1024 + 1) })
   if (tooLarge.status !== 413) throw new Error("Worker must reject files larger than 10 MiB.")
