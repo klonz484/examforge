@@ -129,3 +129,20 @@
 :root[data-theme="light"] .review-status.due{color:#8e3900;background:#fff0e4;border-color:#f0c5a5}
 :root[data-theme="light"] .review-status.scheduled{color:#155a90;background:#e9f4ff;border-color:#bad9f3}
 @media(max-width:390px){.review-grade-actions{grid-template-columns:repeat(2,1fr)}}
+
+
+/* Transparent, sample-aware progress intelligence */
+.trend-summary{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.trend-summary>div{display:grid;gap:5px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px}
+.trend-summary small{font-size:10px;color:var(--muted)}
+.trend-summary b{font:700 22px 'Space Grotesk';color:var(--orange)}
+.trend-summary span{font-size:10px;color:var(--muted)}
+.trend-label{grid-column:1/-1;border-radius:8px;padding:8px 10px;font-size:10px;font-weight:800;text-transform:capitalize}
+.trend-improving{background:#122c20;color:#7dd69b}
+.trend-declining{background:#321a1b;color:#ff9696}
+.trend-steady,.trend-insufficient-data{background:var(--panel2);color:var(--muted)}
+.recommendation-panel>b{display:block;font:700 18px 'Space Grotesk';margin:7px 0}
+.evidence-count{display:block;color:var(--muted);font-size:9px;margin-top:3px;font-weight:400}
+:root[data-theme="light"] .trend-summary>div{background:#f3f6fa;border-color:#d8dee8}
+:root[data-theme="light"] .trend-improving{background:#e6f7ed;color:#176b3b}
+:root[data-theme="light"] .trend-declining{background:#fff0f0;color:#a12d36}
