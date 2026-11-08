@@ -217,12 +217,62 @@ test('Supabase study data and private notes enforce per-account access', async (
   expect(extracted.data.status).toBe('ready')
   expect(extracted.data.extractedText).toContain('net force acting on an object')
   const storedExtraction = await accountA.from('note_uploads')
-    .select('processing_status,extracted_text,extraction_metadata,extracted_at')
+    .select('processing_status,extracted_text,extraction_metadata,extraction_confidence,extracted_at')
     .eq('id', note.data!.id).single()
   expect(storedExtraction.error).toBeNull()
   expect(storedExtraction.data.processing_status).toBe('ready')
   expect(storedExtraction.data.extracted_text).toContain('Newton')
-  expect(storedExtraction.data.extraction_metadata).toMatchObject({ parser: 'unpdf@2.1.0', pages: 1, requiresOcr: false })
+  expect(storedExtraction.data.extraction_metadata).toMatchObject({ parser: 'unpdf@2.1.0', pages: 1, requiresOcr: false, qualityStatus: 'usable-selectable-text', confidenceStatus: 'not-calibrated' })
+  expect(storedExtraction.data.extraction_confidence).toBeNull()
+
+  // Scanned PDFs and images are classified honestly; no unapproved OCR service is called.
+  const scannedPath = `${userA!.id}/e2e-${marker}-scanned.pdf`
+  const scannedBytes = createTextPdf('Short scanned page')
+  const scannedUpload = await accountA.storage.from('student-notes').upload(scannedPath, scannedBytes, {
+    contentType: 'application/pdf', upsert: false,
+  })
+  expect(scannedUpload.error).toBeNull()
+  const scannedNote = await accountA.from('note_uploads').insert({
+    storage_path: scannedPath, original_name: `examforge-e2e-${marker}-scanned.pdf`,
+    mime_type: 'application/pdf', size_bytes: scannedBytes.byteLength, processing_status: 'queued',
+  }).select('id').single()
+  expect(scannedNote.error).toBeNull()
+  const scannedExtraction = await accountA.functions.invoke('extract-study-note', { body: { noteId: scannedNote.data!.id } })
+  expect(scannedExtraction.error).not.toBeNull()
+  const scannedStored = await accountA.from('note_uploads')
+    .select('processing_status,extraction_confidence,extraction_metadata,extraction_error')
+    .eq('id', scannedNote.data!.id).single()
+  expect(scannedStored.error).toBeNull()
+  expect(scannedStored.data).toMatchObject({
+    processing_status: 'low_confidence',
+    extraction_confidence: null,
+    extraction_metadata: { requiresOcr: true, qualityStatus: 'insufficient-selectable-text', confidenceStatus: 'not-calibrated' },
+  })
+  expect(scannedStored.data.extraction_error).toContain('OCR is not enabled')
+
+  const imagePath = `${userA!.id}/e2e-${marker}.png`
+  const imageBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  const imageUpload = await accountA.storage.from('student-notes').upload(imagePath, imageBytes, {
+    contentType: 'image/png', upsert: false,
+  })
+  expect(imageUpload.error).toBeNull()
+  const imageNote = await accountA.from('note_uploads').insert({
+    storage_path: imagePath, original_name: `examforge-e2e-${marker}.png`,
+    mime_type: 'image/png', size_bytes: imageBytes.byteLength, processing_status: 'queued',
+  }).select('id').single()
+  expect(imageNote.error).toBeNull()
+  const imageExtraction = await accountA.functions.invoke('extract-study-note', { body: { noteId: imageNote.data!.id } })
+  expect(imageExtraction.error).not.toBeNull()
+  const imageStored = await accountA.from('note_uploads')
+    .select('processing_status,extraction_confidence,extraction_metadata,extraction_error')
+    .eq('id', imageNote.data!.id).single()
+  expect(imageStored.error).toBeNull()
+  expect(imageStored.data).toMatchObject({
+    processing_status: 'low_confidence',
+    extraction_confidence: null,
+    extraction_metadata: { kind: 'image', requiresOcr: true, qualityStatus: 'not-extracted', confidenceStatus: 'not-assessed' },
+  })
+  expect(imageStored.data.extraction_error).toContain('No external OCR provider was called')
 
   // The local test environment intentionally has no AI provider secrets.
   const disabledDraft = await accountA.functions.invoke('generate-study-question', {
@@ -257,10 +307,10 @@ test('Supabase study data and private notes enforce per-account access', async (
   expect(forgedUpload.error).not.toBeNull()
 
   // Notes and objects have owner-delete policies, so remove the temporary private file.
-  const deletedNote = await accountA.from('note_uploads').delete().eq('id', note.data!.id)
-  expect(deletedNote.error).toBeNull()
-  const deletedObject = await accountA.storage.from('student-notes').remove([storagePath])
-  expect(deletedObject.error).toBeNull()
+  const deletedNotes = await accountA.from('note_uploads').delete().in('id', [note.data!.id, scannedNote.data!.id, imageNote.data!.id])
+  expect(deletedNotes.error).toBeNull()
+  const deletedObjects = await accountA.storage.from('student-notes').remove([storagePath, scannedPath, imagePath])
+  expect(deletedObjects.error).toBeNull()
 
   await accountA.auth.signOut()
   await accountB.auth.signOut()
