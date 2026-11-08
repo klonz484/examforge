@@ -8,7 +8,7 @@ import { getPracticeTopics, PRACTICE_QUESTIONS, selectPracticeQuestions, type Pr
 import { CAPS_ROADMAPS } from './data/capsRoadmaps'
 import { OFFICIAL_PAPER_ARCHIVES } from './data/examArchives'
 import { isFlashcardDue, scheduleFlashcardReview, type FlashcardReviewState, type ReviewGrade } from './data/spacedRepetition'
-import { analyseProgress } from './data/progressIntelligence'
+import { analyseProgress, scopeProgressAttempts } from './data/progressIntelligence'
 
 type Tab = 'Dashboard' | 'Past Papers' | 'Upload Notes' | 'Progress'
 const REWIND_SECONDS = 20 * 60
@@ -16,7 +16,7 @@ const ALLOWED_NOTE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'applicatio
 const MAX_NOTE_BYTES = 10 * 1024 * 1024
 
 type Session = { date: string; score: number; seconds: number; subject: string }
-type Attempt = { topic: string; correct: boolean; t: number; sessionId?: string; questionId?: string; response?: { selected: number } }
+type Attempt = { topic: string; correct: boolean; t: number; sessionId?: string; questionId?: string; subjectId?: string | null; grade?: number | null; response?: { selected: number } }
 type SessionSnapshot = { id?: string; updatedAt?: string; subject: string; subjectId: string; grade: number; questions: PracticeQuestion[]; questionIndex: number; answers: number[]; seconds: number; startedAt: string }
 type SessionSummary = { session: Session; questions: PracticeQuestion[]; answers: number[] }
 type Profile = { grade: string; examDate: string; subject: string; weak: string[] }
@@ -126,8 +126,7 @@ function App() {
     (item.subjectName + item.year + item.sitting + item.sourceTitle).toLowerCase().includes(search.toLowerCase())
   ), [filter, search])
   const activeRoadmap = CAPS_ROADMAPS.find(item => item.grade === Number(roadmapGrade) && item.subjectId === roadmapSubjectId) ?? null
-  const subjectAttempts = attempts.filter(a => topics.includes(a.topic))
-  const masteryFor = (t: string) => { const rows = attempts.filter(a => a.topic === t).slice(-20); return rows.length ? Math.round(100 * rows.filter(r => r.correct).length / rows.length) : null }
+  const subjectAttempts = scopeProgressAttempts(attempts, activeSubjectId, Number(grade), PRACTICE_QUESTIONS)
   const accuracy = subjectAttempts.length ? Math.round(100 * subjectAttempts.filter(a => a.correct).length / subjectAttempts.length) : null
   const mistakeQuestions = useMemo(() => {
     const ids = Array.from(new Set(attempts.filter(item => !item.correct && item.questionId).map(item => item.questionId!)))
@@ -243,13 +242,15 @@ function App() {
         }
       }
       const { data: attemptRows, error: attemptsError } = await client.from('question_attempts')
-        .select('topic,is_correct,attempted_at,study_session_id,question_id,response')
+        .select('topic,is_correct,attempted_at,study_session_id,question_id,response,subject_id,grade')
         .eq('user_id', userId).order('attempted_at', { ascending: false }).limit(500)
       if (active && !attemptsError && attemptRows) {
         const hydratedAttempts = [...attemptRows].reverse().map(row => ({
           topic: String(row.topic), correct: Boolean(row.is_correct), t: new Date(row.attempted_at as string).getTime(),
           sessionId: row.study_session_id ? String(row.study_session_id) : undefined,
           questionId: row.question_id ? String(row.question_id) : undefined,
+          subjectId: row.subject_id ? String(row.subject_id) : undefined,
+          grade: row.grade == null ? undefined : Number(row.grade),
           response: row.response as { selected: number } | undefined,
         }))
         setAttempts(hydratedAttempts)
@@ -448,7 +449,8 @@ function App() {
     setSelected(i); setAnswers(nextAnswers)
     const nextAttempts = [...attempts, {
       topic: currentQuestion.topic, correct, t: Date.now(),
-      sessionId: activeSessionId ?? undefined, questionId: currentQuestion.id, response: { selected: i },
+      sessionId: activeSessionId ?? undefined, questionId: currentQuestion.id,
+      subjectId: currentQuestion.subjectId, grade: currentQuestion.grade, response: { selected: i },
     }].slice(-500)
     setAttempts(nextAttempts); save(userStorageKey(user?.id ?? null, 'attempts'), nextAttempts)
   }
