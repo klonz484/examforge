@@ -193,3 +193,12 @@ Manual physical Android accessibility/screen-reader testing, POPIA/legal review,
 
 These require owner/legal/device access or approved live-service configuration. Do not merge PR #3, apply live migrations, deploy Pages, configure production secrets or incur provider costs without separate explicit approval. PR #3 remains draft, open and unmerged.
 
+
+
+## 16. PR #4 OCR worker security review — 9 November 2026
+
+- Reviewed the non-production Tesseract worker and added bounded concurrency, HTTP overload response, request/header timeouts, maximum header count, image dimension/pixel/frame rejection before OCR, and fixed safe error messages.
+- Added synthetic tests for one-job concurrency rejection and oversized image dimensions. These tests have been committed but have **not** been confirmed by a completed current-head Actions run.
+- Latest documentation/code commit recorded: `208c7c6c63243a75e37b1d2bed9e5d29b73fdd23` (later docs commits may advance the head).
+- Current-head GitHub Actions status is unavailable/empty through the connected repository status query; no verification claim is made. PR #4 remains draft and unmerged.
+- No real OpenAI API calls, credentials, spending, real learner data, production secrets, live Supabase migrations or deployments were used.

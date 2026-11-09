@@ -24,8 +24,8 @@
 
 - Supabase provides authentication, Postgres data, private object storage and Edge Function execution for the configured project.
 - The DBE is linked as the source host for official paper/memo archive indexes. ExamForge does not re-host those DBE PDFs.
-- No AI provider or OCR vendor is configured. The server-side `AI_STUDY_ENABLED` kill switch remains false; the browser flag `VITE_AI_STUDY_ENABLED` also defaults false. No paid AI/OCR request is made by the current CI workflow.
-- Text-based PDF extraction runs in the authenticated Supabase Edge Function. Scanned PDFs and image uploads remain private and are marked as requiring OCR; no external OCR service is called.
+- No hosted AI provider or third-party OCR vendor is configured. The server-side `AI_STUDY_ENABLED` and `OCR_WORKER_ENABLED` kill switches remain false in CI; the browser flag `VITE_AI_STUDY_ENABLED` also defaults false. The OCR worker is self-hosted and opt-in for isolated non-production tests only. No paid AI/OCR request is made by CI.
+- Text-based PDF extraction runs in the authenticated Supabase Edge Function. An opt-in private Tesseract worker path supports synthetic/non-production scanned PDF and image tests with English and Afrikaans models. The worker is not a third-party cloud OCR vendor; it must remain disabled outside the approved isolated environment.
 - The current dependency manifest contains no advertising or analytics SDK. Re-check dependencies and any future integrations before release.
 
 ## Technical controls present in the foundation branch

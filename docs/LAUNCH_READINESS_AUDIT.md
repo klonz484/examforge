@@ -24,7 +24,7 @@
 | Offline/PWA | Installability, cache policy, offline study, sync conflicts, queue recovery and Android browser testing under poor connectivity | Local session recovery and offline answer-queue sync pass; broader conflict/constrained-network testing remains |
 | Performance | Real low/mid-range Android device, cold start, bundle, route and constrained-network checks | CI build only; field performance audit not completed |
 | Content | Current DBE source verification, question correctness review, paper link checks, licensing/provenance and curriculum coverage | Grade 10–12 Mathematics/Physical Sciences maps and practice sets; eight DBE archive-index links checked. Links open official index pages, not re-hosted direct PDFs. Broader subject coverage and independent content review remain |
-| AI | Provider due diligence, DPIA, secrets, OCR vendor, quotas, spend controls, Edge Function deployment and quality evaluation | Private selectable-text PDF extraction and quality-status reporting; scanned/image OCR and AI provider disabled. Metadata allowlist, output validation scaffold and daily quota tests pass. No provider call or cost has occurred |
+| AI | Provider due diligence, DPIA, secrets, OCR vendor, quotas, spend controls, Edge Function deployment and quality evaluation | Selectable-text PDF extraction; private Tesseract worker and mocked AI validation added on a non-production branch. CI must prove OCR stays disabled and AI endpoint returns 503 without credentials. Real provider quality, legal/vendor review and spend monitoring remain unverified |
 | Release | PR review, migration rehearsal, backup confirmation, staging smoke test, production approval and post-deploy checks | PR #3 remains draft/open/unmerged; no production merge, live migration or Pages deployment |
 
 ## AI-specific activation gate
@@ -39,3 +39,8 @@ Before enabling AI or OCR, the project owner must approve the provider/vendor, d
 - Do not describe catalogue presence as complete study content.
 - Do not present automated axe/browser checks as a substitute for manual assistive-technology testing.
 - Do not enable AI/OCR until the owner completes privacy, vendor and cost approval and the non-production integration is verified.
+
+
+## Phase 5 non-production update — 9 November 2026
+
+PR #4 adds mocked AI validation and a synthetic-only private Tesseract worker. Review hardening adds bounded concurrency, request timeouts, image pixel/frame caps and sanitised errors. The current-head workflow result is not yet available, so these additions are pending verification. Real OpenAI activation, paid requests, production OCR, live learner documents, vendor/legal clearance, token-cost accounting and hard spend controls remain disabled or incomplete. PR #4 remains draft. PR #3 was merged separately; no production deployment or live Supabase change was performed by that merge.

@@ -7,6 +7,10 @@ export type ValidatedQuestionDraft = {
   confidence: number
 }
 
+function containsUnsafeInstruction(value: string): boolean {
+  return /\b(ignore (all )?(previous|above|system) instructions|reveal (the )?(system prompt|api key|secret)|developer message|act as (the )?(system|developer)|override (all )?safety rules)\b/i.test(value)
+}
+
 function normaliseForEvidence(value: string): string {
   return value.normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim()
 }
@@ -16,12 +20,13 @@ export function parseQuestionDraft(content: string, sourceText: string): Validat
     .replace(/^\x60\x60\x60(?:json)?\s*/i, '')
     .replace(/\s*\x60\x60\x60$/, '')
   const value = JSON.parse(cleaned) as Partial<ValidatedQuestionDraft>
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The generated question must be a JSON object.')
 
-  if (typeof value.prompt !== 'string' || value.prompt.trim().length < 12 || value.prompt.length > 700) {
+  if (typeof value.prompt !== 'string' || value.prompt.trim().length < 12 || value.prompt.length > 700 || containsUnsafeInstruction(value.prompt)) {
     throw new Error('The generated question prompt is invalid.')
   }
   if (!Array.isArray(value.options) || value.options.length !== 4 ||
-      value.options.some(option => typeof option !== 'string' || option.trim().length < 1 || option.length > 240)) {
+      value.options.some(option => typeof option !== 'string' || option.trim().length < 1 || option.length > 240 || containsUnsafeInstruction(option))) {
     throw new Error('The generated question must contain four valid answer options.')
   }
   if (new Set(value.options.map(option => option.trim().toLocaleLowerCase())).size !== 4) {
@@ -30,7 +35,7 @@ export function parseQuestionDraft(content: string, sourceText: string): Validat
   if (!Number.isInteger(value.answerIndex) || value.answerIndex! < 0 || value.answerIndex! > 3) {
     throw new Error('The generated correct answer index is invalid.')
   }
-  if (typeof value.explanation !== 'string' || value.explanation.trim().length < 25 || value.explanation.length > 2400) {
+  if (typeof value.explanation !== 'string' || value.explanation.trim().length < 25 || value.explanation.length > 2400 || containsUnsafeInstruction(value.explanation)) {
     throw new Error('The generated explanation is invalid.')
   }
   if (typeof value.evidence !== 'string' || value.evidence.trim().length < 12 || value.evidence.length > 300) {
