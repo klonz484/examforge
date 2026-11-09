@@ -13,6 +13,8 @@ const MAX_BYTES = 10 * 1024 * 1024
 const MAX_PAGES = 30
 const MAX_TEXT = 8000
 const TIMEOUT_MS = 20000
+const MAX_CONCURRENT_JOBS = 2
+let activeJobs = 0
 const MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"])
 const ALLOWED_LANGUAGES = new Set((process.env.TESSERACT_ALLOWED_LANGUAGES || "eng,afr").split(",").map(x => x.trim()).filter(Boolean))
 
@@ -116,15 +118,31 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/health") return send(res, 200, { status: "ok", engine: "tesseract", languages: [...ALLOWED_LANGUAGES] })
   if (req.method !== "POST" || req.url !== "/ocr") return send(res, 404, { error: "Not found." })
   if (!authorised(req)) return send(res, 401, { error: "Unauthorized." })
+  if (activeJobs >= MAX_CONCURRENT_JOBS) return send(res, 429, { error: "OCR worker is busy. Retry shortly." })
   const mimeType = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase()
   if (!MIME_TYPES.has(mimeType)) return send(res, 415, { error: "Unsupported OCR input type." })
+  activeJobs += 1
   try {
     const languages = requestedLanguages(req)
     const result = await processFile(await readBody(req), mimeType, languages)
     return send(res, 200, result)
   } catch (error) {
-    const status = Number(error?.status) || (error?.killed ? 504 : 422)
-    return send(res, status, { error: status === 504 ? "OCR processing timed out." : String(error?.message || "OCR failed.") })
+    const requestedStatus = Number(error?.status)
+    const status = [400, 413, 415, 422].includes(requestedStatus) ? requestedStatus : (error?.killed ? 504 : 422)
+    const safeMessages = {
+      400: "OCR request settings are invalid.",
+      413: "OCR input exceeds the 10 MiB limit.",
+      415: "OCR input type or file signature is not supported.",
+      422: "OCR could not process this document. Check the file and try again.",
+      504: "OCR processing timed out.",
+    }
+    return send(res, status, { error: safeMessages[status] })
+  } finally {
+    activeJobs -= 1
   }
 })
+server.requestTimeout = 25_000
+server.headersTimeout = 10_000
+server.keepAliveTimeout = 5_000
+server.maxHeadersCount = 30
 server.listen(PORT, "0.0.0.0", () => process.stdout.write("Tesseract worker listening on port " + PORT + "\n"))
