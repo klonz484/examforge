@@ -8,7 +8,7 @@ const port = 18787
 const token = randomBytes(32).toString("hex")
 const base = "http://127.0.0.1:" + port
 const worker = spawn(process.execPath, ["tools/tesseract-worker/server.mjs"], {
-  env: { ...process.env, PORT: String(port), TESSERACT_WORKER_TOKEN: token, TESSERACT_ALLOWED_LANGUAGES: "eng,afr" },
+  env: { ...process.env, PORT: String(port), TESSERACT_WORKER_TOKEN: token, TESSERACT_ALLOWED_LANGUAGES: "eng,afr", TESSERACT_MAX_CONCURRENT_JOBS: "1" },
   stdio: ["ignore", "pipe", "pipe"],
 })
 let workerOutput = ""
@@ -83,6 +83,12 @@ try {
 
   const badSignature = await fetch(base + "/ocr", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "image/png" }, body: Buffer.from("not a PNG") })
   if (badSignature.status !== 415) throw new Error("Worker must reject files with mismatched signatures.")
+
+  const concurrentResponses = await Promise.all([postOcr(textImage), postOcr(textImage)])
+  const concurrentStatuses = concurrentResponses.map(response => response.status).sort((a, b) => a - b)
+  if (concurrentStatuses[0] !== 200 || concurrentStatuses[1] !== 429) {
+    throw new Error("Worker must enforce its configured one-job concurrency limit: " + concurrentStatuses.join(", "))
+  }
 
   const textResponse = await postOcr(textImage)
   if (!textResponse.ok) throw new Error("Worker text OCR failed: " + await textResponse.text())
