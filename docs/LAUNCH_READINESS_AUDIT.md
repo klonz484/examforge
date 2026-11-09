@@ -39,3 +39,8 @@ Before enabling AI or OCR, the project owner must approve the provider/vendor, d
 - Do not describe catalogue presence as complete study content.
 - Do not present automated axe/browser checks as a substitute for manual assistive-technology testing.
 - Do not enable AI/OCR until the owner completes privacy, vendor and cost approval and the non-production integration is verified.
+
+
+## Phase 5 non-production update — 9 November 2026
+
+PR #4 adds mocked AI validation and a synthetic-only private Tesseract worker. Review hardening adds bounded concurrency, request timeouts, image pixel/frame caps and sanitised errors. The current-head workflow result is not yet available, so these additions are pending verification. Real OpenAI activation, paid requests, production OCR, live learner documents, vendor/legal clearance, token-cost accounting and hard spend controls remain disabled or incomplete. PR #4 remains draft. PR #3 was merged separately; no production deployment or live Supabase change was performed by that merge.
