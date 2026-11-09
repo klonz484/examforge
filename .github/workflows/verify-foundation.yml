@@ -136,6 +136,8 @@ jobs:
       - name: Prove live AI provider calls are disabled in test configuration
         run: |
           code="$(curl --silent --output "$RUNNER_TEMP/ai-disabled.json" --write-out '%{http_code}' -X POST \
+            -H "Authorization: Bearer $VITE_SUPABASE_ANON_KEY" \
+            -H "apikey: $VITE_SUPABASE_ANON_KEY" \
             -H 'Content-Type: application/json' --data '{}' \
             "$API_URL/functions/v1/generate-study-question")"
           if [ "$code" != "503" ] || ! grep -q "disabled pending explicit" "$RUNNER_TEMP/ai-disabled.json"; then
