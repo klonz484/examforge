@@ -13,7 +13,8 @@ const MAX_BYTES = 10 * 1024 * 1024
 const MAX_PAGES = 30
 const MAX_TEXT = 8000
 const TIMEOUT_MS = 20000
-const MAX_CONCURRENT_JOBS = Math.max(1, Math.min(4, Number(process.env.TESSERACT_MAX_CONCURRENT_JOBS || 2)))
+const configuredConcurrency = Number(process.env.TESSERACT_MAX_CONCURRENT_JOBS || 2)
+const MAX_CONCURRENT_JOBS = Number.isInteger(configuredConcurrency) ? Math.max(1, Math.min(4, configuredConcurrency)) : 2
 let activeJobs = 0
 const MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"])
 const ALLOWED_LANGUAGES = new Set((process.env.TESSERACT_ALLOWED_LANGUAGES || "eng,afr").split(",").map(x => x.trim()).filter(Boolean))
