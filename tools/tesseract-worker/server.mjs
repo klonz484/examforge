@@ -78,7 +78,7 @@ async function processFile(bytes, mimeType, languages) {
     let images = []
     if (mimeType !== "application/pdf") {
       const dimensions = await command("identify", ["-ping", "-format", "%w %h %n", input], deadline)
-      const [width, height, frames] = dimensions.stdout.trim().split(/\\s+/).map(Number)
+      const [width, height, frames] = dimensions.stdout.trim().split(/\s+/).map(Number)
       if (!Number.isInteger(width) || !Number.isInteger(height) || !Number.isInteger(frames) ||
           width < 1 || height < 1 || width > 10000 || height > 10000 || width * height > 25_000_000 || frames !== 1) {
         throw Object.assign(new Error("Image dimensions or frame count are outside the allowed range."), { status: 422 })
