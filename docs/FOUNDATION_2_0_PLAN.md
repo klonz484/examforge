@@ -513,3 +513,10 @@ The project owner explicitly approved non-production implementation using mocked
 **Phase 5 remains PARTIAL.** The mock implementation cannot prove real OpenAI response quality, provider-specific failure handling, actual token spend, vendor retention/region/subprocessor terms or POPIA compliance. The request quota is implemented, but real provider hard spend limits, token-level cost monitoring and alerts are not operational. Those items require separate owner/vendor/legal decisions and a later approval.
 
 PR #4 remains a draft and unmerged. No production deployment or live Supabase change has been made.
+
+
+## 18. OCR worker hardening follow-up — 9 November 2026
+
+During PR #4 review, the private Tesseract worker received additional defensive controls: bounded concurrent jobs (default two, constrained to 1–4), HTTP 429 overload response, Node request/header/keep-alive timeouts, header-count cap, image dimension/pixel/frame limits before decode, and fixed safe error responses that do not expose child-process diagnostics or internal paths. Synthetic smoke tests were expanded for concurrency and oversized-image rejection.
+
+Latest code/documentation commit at this update: `208c7c6c63243a75e37b1d2bed9e5d29b73fdd23`. The GitHub connector currently reports no workflow run or combined status for the latest head; these changes are **not yet verified**. Do not mark Phase 5 complete until the full current-head foundation workflow completes successfully and the exit criteria are reviewed. PR #4 remains draft; no merge, production activation, provider call, spending, live learner data, live Supabase change or deployment is authorised.
