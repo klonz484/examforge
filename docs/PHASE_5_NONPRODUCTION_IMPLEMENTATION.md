@@ -75,3 +75,15 @@ Phase 5 cannot be declared production-complete under the current non-production 
 - Any production secrets, production OCR enablement, live migrations or deployment.
 
 No production approval is being requested by this implementation. PR #4 remains a draft and must not be merged.
+
+
+## Additional OCR worker hardening — 9 November 2026
+
+The worker was further hardened during review:
+- Concurrent OCR work is bounded (default two jobs; configurable only within 1–4, invalid values fall back to two). Excess authenticated requests receive HTTP 429.
+- Node request/header/keep-alive timeouts and header-count limits are set.
+- Image inputs are inspected before decode; images over 10,000 px on either dimension, over 25 million pixels, or with multiple frames are rejected.
+- Error responses use fixed safe messages rather than exposing child-process error text or internal filesystem paths.
+- Synthetic smoke tests now cover concurrency rejection and oversized image dimensions in addition to authentication, MIME/signature, language, equation, PDF page count, upload size and temporary-file cleanup.
+
+These changes are committed on the PR branch. They are not yet verified by a completed current-head GitHub Actions run; do not treat the new tests as passed until the full workflow reports success.
