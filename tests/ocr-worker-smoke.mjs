@@ -24,8 +24,8 @@ async function waitForWorker() {
   throw new Error("Tesseract worker did not start: " + workerOutput)
 }
 
-function syntheticImage(text, filename) {
-  const result = spawnSync("convert", ["-size", "2200x440", "xc:white", "-font", "DejaVu-Sans", "-pointsize", "112", "-fill", "black", "-gravity", "center", "-annotate", "+0+0", text, "png:" + filename], { encoding: null })
+function syntheticImage(text, filename, geometry = "2200x440") {
+  const result = spawnSync("convert", ["-size", geometry, "xc:white", "-font", "DejaVu-Sans", "-pointsize", "112", "-fill", "black", "-gravity", "center", "-annotate", "+0+0", text, "png:" + filename], { encoding: null })
   if (result.status !== 0) throw new Error("Could not create synthetic OCR image: " + String(result.stderr))
   const read = spawnSync("cat", [filename], { encoding: null })
   if (read.status !== 0 || !read.stdout?.length) throw new Error("Could not read synthetic OCR image.")
@@ -83,6 +83,10 @@ try {
 
   const badSignature = await fetch(base + "/ocr", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "image/png" }, body: Buffer.from("not a PNG") })
   if (badSignature.status !== 415) throw new Error("Worker must reject files with mismatched signatures.")
+
+  const oversizedImage = syntheticImage("oversized", "/tmp/examforge-ocr-oversized.png", "10001x1")
+  const oversizedImageResponse = await postOcr(oversizedImage)
+  if (oversizedImageResponse.status !== 422) throw new Error("Worker must reject images wider than 10,000 pixels.")
 
   const concurrentResponses = await Promise.all([postOcr(textImage), postOcr(textImage)])
   const concurrentStatuses = concurrentResponses.map(response => response.status).sort((a, b) => a - b)
